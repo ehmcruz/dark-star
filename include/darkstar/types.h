@@ -15,7 +15,9 @@ namespace DarkStar
 
 using fp_t = double;
 using Vector3 = Mylib::Math::Vector<fp_t, 3>;
+using Vector3f = Mylib::Math::Vector<float, 3>;
 using Vector = Vector3;
+using gVector = Vector3f; // for graphics we use float, not double
 using Point = Vector;
 
 // ---------------------------------------------------

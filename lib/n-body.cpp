@@ -5,6 +5,7 @@
 #include <darkstar/constants.h>
 #include <darkstar/body.h>
 #include <darkstar/n-body.h>
+#include <darkstar/dark-star.h>
 
 // ---------------------------------------------------
 
@@ -37,6 +38,9 @@ void N_Body::render ()
 	for (Body& body : this->bodies) {
 		body.render();
 	}
+
+	renderer->render();
+	renderer->update_screen();
 }
 
 // ---------------------------------------------------
