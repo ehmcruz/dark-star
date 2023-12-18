@@ -3,7 +3,11 @@
 
 // ---------------------------------------------------
 
+#include <variant>
+
 #include <my-lib/macros.h>
+
+#include <my-game-lib/graphics.h>
 
 #include <darkstar/types.h>
 #include <darkstar/lib.h>
@@ -15,25 +19,39 @@ namespace DarkStar
 
 // ---------------------------------------------------
 
+using MyGlib::Graphics::Shape;
+using MyGlib::Graphics::Cube3D;
+using MyGlib::Graphics::Sphere3D;
+
+// ---------------------------------------------------
+
 /*
- * NaturalBody represents a body that follows a gravitational orbit.
- * It doesn't have any artificial propulsion.
+ * Body represents a body that is affected by gravitaty.
+ * It may or not have artificial propulsion.
 */
 
-class NaturalBody
+class Body
 {
+public:
+
+
 protected:
 	OO_ENCAPSULATE_SCALAR(fp_t, mass)
 	OO_ENCAPSULATE_OBJ(Point, pos)
 	OO_ENCAPSULATE_OBJ(Vector, vel)
+	OO_ENCAPSULATE_SCALAR_READONLY(Shape::Type, shape_type)
+
+	OO_ENCAPSULATE_OBJ_INIT(Vector, self_force, Vector::zero())
 
 	// resulting force of a simulation step
 	// must be reset to zero before each step
 	OO_ENCAPSULATE_OBJ(Vector, rforce)
 
+	std::variant<Cube3D, Sphere3D> shape;
+
 public:
-	NaturalBody (const fp_t mass_, const Point& pos_, const Vector& vel_) noexcept
-		: mass(mass_), pos(pos_), vel(vel_)
+	constexpr Body (const fp_t mass_, const Point& pos_, const Vector& vel_, const Shape::Type shape_type_) noexcept
+		: mass(mass_), pos(pos_), vel(vel_), shape_type(shape_type_)
 	{
 	}
 
@@ -49,21 +67,8 @@ public:
 	{
 		this->rforce.set_zero();
 	}
-};
 
-// ---------------------------------------------------
-
-/*
- * ArtificialBody represents a body that has artificial propulsion.
-*/
-
-class ArtificialBody : public NaturalBody
-{
-protected:
-	OO_ENCAPSULATE_OBJ_INIT(Vector, self_force, Vector::zero())
-
-public:
-	using NaturalBody::NaturalBody;
+	void render ();
 };
 
 // ---------------------------------------------------
