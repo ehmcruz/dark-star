@@ -54,7 +54,7 @@ protected:
 	std::variant<Cube3D, Sphere3D> shape;
 
 public:
-	constexpr Body (const fp_t mass_, const fp_t radius_, const Point& pos_, const Vector& vel_, const Shape::Type shape_type_) noexcept
+	constexpr Body (const fp_t mass_, const fp_t radius_, const Point& pos_, const Vector& vel_, const Shape::Type shape_type_)
 		: mass(mass_), radius(radius_), pos(pos_), vel(vel_), shape_type(shape_type_)
 	{
 		if (this->shape_type == Shape::Type::Sphere3D)

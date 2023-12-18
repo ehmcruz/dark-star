@@ -22,10 +22,20 @@ constexpr fp_t meters_to_dist_unit (const fp_t meters) noexcept
 	return meters;
 }
 
+constexpr fp_t k_meters_to_dist_unit (const fp_t k_meters) noexcept
+{
+	return meters_to_dist_unit(k_meters * fp(1000));
+}
+
 constexpr fp_t dist_unit_to_meters (const fp_t dist_unit) noexcept
 {
 	//return std::ldexp(dist_unit, -Config::meters_to_dist_unit_exp);
 	return dist_unit;
+}
+
+constexpr fp_t dist_unit_to_k_meters (const fp_t dist_unit) noexcept
+{
+	return dist_unit_to_meters(dist_unit) / fp(1000);
 }
 
 // ---------------------------------------------------

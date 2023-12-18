@@ -9,6 +9,7 @@
 #include <SDL.h>
 
 #include <my-game-lib/debug.h>
+#include <my-game-lib/graphics.h>
 
 #include <darkstar/types.h>
 #include <darkstar/config.h>
@@ -39,13 +40,16 @@ using ClockTime = Clock::time_point;
 using DarkStar::fp_t;
 using DarkStar::Vector;
 using DarkStar::gVector;
+using DarkStar::gPoint;
 using DarkStar::Color;
 
 using DarkStar::renderer;
 using DarkStar::event_manager;
 using DarkStar::audio_manager;
 
-using DarkStar::meters_to_dist_unit;
+using DarkStar::fp;
+using DarkStar::gfp;
+using DarkStar::k_meters_to_dist_unit;
 
 // -------------------------------------------
 
@@ -57,9 +61,6 @@ namespace Config {
 	inline constexpr fp_t sleep_threshold = target_dt * 0.9;
 	inline constexpr bool sleep_to_save_cpu = true;
 	inline constexpr bool busy_wait_to_ensure_fps = true;
-	inline constexpr fp_t player_speed = 0.5;
-	inline constexpr fp_t camera_rotate_angular_speed = Mylib::Math::degrees_to_radians(fp(90));
-	inline constexpr fp_t camera_move_speed = 0.5;
 }
 
 // -------------------------------------------
@@ -71,12 +72,14 @@ DarkStar::N_Body *n_body = nullptr;
 Body *earth = nullptr;
 Body *moon = nullptr;
 
+MyGlib::Graphics::LightPointDescriptor light_desc;
+
 MyGlib::Graphics::RenderArgs3D render_opts = {
 	.world_camera_pos = gVector::zero(),
 	.world_camera_target = gVector::zero(),
-	.fov_y = Mylib::Math::degrees_to_radians(fp(45)),
+	.fov_y = Mylib::Math::degrees_to_radians(gfp(45)),
 	.z_near = 0.1,
-	.z_far = 100,
+	.z_far = k_meters_to_dist_unit(1e6),
 	.ambient_light_color = {1, 1, 1, 0.3},
 	};
 
@@ -101,7 +104,11 @@ static void load ()
 	earth = &n_body->add_body(DarkStar::UserLib::make_earth());
 
 	moon = &n_body->add_body(DarkStar::UserLib::make_moon());
-	moon->set_pos(earth->get_ref_pos() + Vector(meters_to_dist_unit(384400000), 0, 0));
+	moon->set_pos(earth->get_ref_pos() + Vector(k_meters_to_dist_unit(384400), 0, 0));
+
+	light_desc = renderer->add_light_point_source(
+		gPoint(0, k_meters_to_dist_unit(100000), 0), Color::white()
+	);
 }
 
 // -------------------------------------------
@@ -124,7 +131,7 @@ static fp_t setup_step (fp_t virtual_dt)
 {
 	Vector e_pos = earth->get_value_pos();
 
-	render_opts.world_camera_pos = gVector(e_pos.x, e_pos.y, e_pos.z - meters_to_dist_unit(100000000));
+	render_opts.world_camera_pos = gVector(e_pos.x, e_pos.y, e_pos.z - k_meters_to_dist_unit(100000));
 	render_opts.world_camera_target = gVector(e_pos.x, e_pos.y, e_pos.z);
 
 	renderer->setup_render_3D(render_opts);

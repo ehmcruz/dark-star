@@ -33,7 +33,9 @@ MYLIB_OBJS = #ext/memory.o
 
 SRCS := $(wildcard lib/*.cpp)
 
-HEADERS := $(wildcard include/dark-star/*.h) $(wildcard $(MYLIB)/include/my-lib/*.h) $(wildcard $(MYGLIB)/include/my-lib/*.h)
+HEADERS := $(wildcard include/darkstar/*.h) $(wildcard $(MYLIB)/include/my-lib/*.h) $(wildcard $(MYGLIB)/include/my-game-lib/*.h)
+
+SRCS += $(wildcard $(MYGLIB)/src/*.cpp)
 
 SRCS += $(wildcard $(MYGLIB)/src/sdl/*.cpp)
 HEADERS += $(wildcard $(MYGLIB)/include/my-game-lib/sdl/*.h)

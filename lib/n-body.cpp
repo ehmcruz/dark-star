@@ -22,6 +22,12 @@ N_Body::N_Body (const std::size_t max_elements_)
 
 // ---------------------------------------------------
 
+N_Body::~N_Body ()
+{
+}
+
+// ---------------------------------------------------
+
 void N_Body::simulate_step (const fp_t dt)
 {
 	for (Body& body : this->bodies) {

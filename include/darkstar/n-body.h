@@ -35,7 +35,12 @@ public:
 		return this->bodies[i];
 	}
 
-	Body& add_body (const Body& body);
+	inline Body& add_body (const Body& body)
+	{
+		mylib_assert_exception_msg(this->bodies.size() < this->max_elements, "N_Body::add_body: max_elements of ", this->max_elements, " reached")
+		this->bodies.push_back(body);
+	}
+	
 	void simulate_step (const fp_t dt);
 	void render ();
 };

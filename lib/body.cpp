@@ -14,9 +14,7 @@ namespace DarkStar
 void Body::render ()
 {
 	switch (this->shape_type) {
-		using enum Shape::Type;
-
-		case Sphere3D:
+		case Shape::Type::Sphere3D:
 			renderer->draw_sphere3D(std::get<Sphere3D>(this->shape), to_vec3f(this->pos), this->color);
 		break;
 
