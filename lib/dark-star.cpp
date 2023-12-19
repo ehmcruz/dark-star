@@ -15,8 +15,8 @@ void init ()
 	game_lib = &MyGlib::Lib::init({
 		.graphics_type = MyGlib::Graphics::Manager::Type::Opengl,
 		.window_name = "Dark Star",
-		.window_width_px = 1200,
-		.window_height_px = 800,
+		.window_width_px = 1900,
+		.window_height_px = 900,
 		//.fullscreen = true
 		.fullscreen = false
 	});

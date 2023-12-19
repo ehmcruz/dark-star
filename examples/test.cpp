@@ -29,6 +29,7 @@ namespace App
 // -------------------------------------------
 
 using DarkStar::Body;
+using DarkStar::Shape;
 
 using MyGlib::dprint;
 using MyGlib::dprintln;
@@ -39,6 +40,7 @@ using ClockTime = Clock::time_point;
 
 using DarkStar::fp_t;
 using DarkStar::Vector;
+using DarkStar::Point;
 using DarkStar::gVector;
 using DarkStar::gPoint;
 using DarkStar::Color;
@@ -50,6 +52,7 @@ using DarkStar::audio_manager;
 using DarkStar::fp;
 using DarkStar::gfp;
 using DarkStar::k_meters_to_dist_unit;
+using DarkStar::kg_to_mass_unit;
 
 // -------------------------------------------
 
@@ -71,17 +74,11 @@ DarkStar::N_Body *n_body = nullptr;
 
 Body *earth = nullptr;
 Body *moon = nullptr;
+Body *sun = nullptr;
 
-MyGlib::Graphics::LightPointDescriptor light_desc;
-
-MyGlib::Graphics::RenderArgs3D render_opts = {
-	.world_camera_pos = gVector::zero(),
-	.world_camera_target = gVector::zero(),
-	.fov_y = Mylib::Math::degrees_to_radians(gfp(45)),
-	.z_near = 0.1,
-	.z_far = k_meters_to_dist_unit(1e6),
-	.ambient_light_color = {1, 1, 1, 0.3},
-	};
+Point world_camera_pos;
+Point world_camera_target;
+Point world_camera_vector;
 
 // -------------------------------------------
 
@@ -102,13 +99,20 @@ static void load ()
 	n_body = new DarkStar::N_Body(1000);
 
 	earth = &n_body->add_body(DarkStar::UserLib::make_earth());
+	//earth = &n_body->add_body(Body(kg_to_mass_unit(1000), k_meters_to_dist_unit(0.5), Vector::zero(), Vector::zero(), Shape::Type::Cube3D));
+	earth->set_color(Color::blue());
 
 	moon = &n_body->add_body(DarkStar::UserLib::make_moon());
 	moon->set_pos(earth->get_ref_pos() + Vector(k_meters_to_dist_unit(384400), 0, 0));
+	moon->set_color(Color::white());
 
-	light_desc = renderer->add_light_point_source(
-		gPoint(0, k_meters_to_dist_unit(100000), 0), Color::white()
-	);
+	sun = &n_body->add_body(DarkStar::UserLib::make_sun());
+	sun->set_radius(earth->get_radius() * fp(2));
+	sun->set_pos((earth->get_ref_pos() + moon->get_ref_pos()) / fp(2));
+	sun->get_ref_pos().z -= k_meters_to_dist_unit(30000);
+	sun->set_color(Color::green());
+
+	std::cout << std::setprecision(30);
 }
 
 // -------------------------------------------
@@ -131,11 +135,23 @@ static fp_t setup_step (fp_t virtual_dt)
 {
 	Vector e_pos = earth->get_value_pos();
 
-	render_opts.world_camera_pos = gVector(e_pos.x, e_pos.y, e_pos.z - k_meters_to_dist_unit(100000));
-	render_opts.world_camera_target = gVector(e_pos.x, e_pos.y, e_pos.z);
+	world_camera_vector = Vector(1, -1, 1);
+	world_camera_vector.set_length(k_meters_to_dist_unit(300000));
+	world_camera_target = sun->get_ref_pos();
+	world_camera_pos = world_camera_target - world_camera_vector;
+	//Point center = (earth->get_ref_pos() + moon->get_ref_pos()) / fp(2);
+	//world_camera_pos = center;
+	//world_camera_pos.y += k_meters_to_dist_unit(100000);
+	//world_camera_pos = Vector(e_pos.x, e_pos.y, e_pos.z - k_meters_to_dist_unit(100000));
+	//world_camera_pos = Vector(e_pos.x, e_pos.y, e_pos.z - k_meters_to_dist_unit(2));
+	//world_camera_target = center;
 
-	renderer->setup_render_3D(render_opts);
+	n_body->setup_render(world_camera_pos, world_camera_target);
 
+	dprintln("earth pos=", earth->get_ref_pos(), " r=", earth->get_radius());
+	//dprintln("moon pos=", moon->get_ref_pos(), " r=", moon->get_radius());
+
+//exit(1);
 	return virtual_dt;
 }
 
@@ -178,7 +194,7 @@ static void main_loop ()
 
 		DarkStar::event_manager->process_events();
 		virtual_dt = setup_step(virtual_dt);
-		n_body->simulate_step(virtual_dt);
+		//n_body->simulate_step(virtual_dt);
 		n_body->render();
 
 		const ClockTime trequired = Clock::now();
