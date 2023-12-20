@@ -49,6 +49,10 @@ constexpr fp_t mass_unit_to_kg (const fp_t mass_unit) noexcept
 // ---------------------------------------------------
 
 /*
+	We need to make some transformations to the formula to make it work with our units.
+	We don't se international units due to floating point precision issues.
+	This is not perfect, but it reduces the error.
+
 	g = C * m1 * m2 / d^2
 
 	C = 6.67430e-11
