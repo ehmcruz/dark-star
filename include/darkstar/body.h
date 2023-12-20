@@ -75,19 +75,16 @@ protected:
 	OO_ENCAPSULATE_PTR_INIT(N_Body*, n_body, nullptr)
 
 	std::variant<Cube3D, Sphere3D> shape;
-	Cube3D cube;
-
 	std::variant<Star, Planet> type_specific;
 
 public:
 	Body (const Type type_, const fp_t mass_, const fp_t radius_, const Point& pos_, const Vector& vel_, const Shape::Type shape_type_)
 		: type(type_), mass(mass_), radius(radius_), pos(pos_), vel(vel_), shape_type(shape_type_)
 	{
-		//if (this->shape_type == Shape::Type::Sphere3D)
-		//	this->shape = Sphere3D(this->radius);
-		if (this->shape_type == Shape::Type::Cube3D)
-			//this->shape = Cube3D(this->radius * fp(2));
-			cube.set_size(this->radius * fp(2));
+		if (this->shape_type == Shape::Type::Sphere3D)
+			this->shape = Sphere3D(this->radius);
+		else if (this->shape_type == Shape::Type::Cube3D)
+			this->shape = Cube3D(this->radius * fp(2));
 		else
 			mylib_throw_exception_msg("invalid shape type");
 	}

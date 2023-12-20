@@ -83,7 +83,7 @@ void N_Body::simulate_step (const fp_t dt_, const std::size_t n_steps)
 
 void N_Body::render ()
 {
-	dprintln("N_Body::render");
+//	dprintln("N_Body::render");
 
 	this->render_opts.world_camera_pos = this->to_graphics_dist(this->camera_pos);
 	this->render_opts.world_camera_target = this->to_graphics_dist(this->camera_target);
@@ -106,7 +106,7 @@ void N_Body::render ()
 	renderer->render();
 	renderer->update_screen();
 
-	dprintln("N_Body::render: finished rendering");
+//	dprintln("N_Body::render: finished rendering");
 }
 
 // ---------------------------------------------------

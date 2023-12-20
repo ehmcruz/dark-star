@@ -97,13 +97,17 @@ constexpr fp_t ClockDuration_to_fp (const ClockDuration& d)
 
 static void load ()
 {
+	constexpr fp_t scale = 8;
+
 	n_body = new DarkStar::N_Body(1000);
 
 	earth = &n_body->add_body(DarkStar::UserLib::make_earth());
+	earth->set_radius(earth->get_radius() * scale);
 	//earth = &n_body->add_body(Body(kg_to_mass_unit(1000), k_meters_to_dist_unit(0.5), Vector::zero(), Vector::zero(), Shape::Type::Cube3D));
 	earth->set_color(Color::blue());
 
 	moon = &n_body->add_body(DarkStar::UserLib::make_moon());
+	moon->set_radius(moon->get_radius() * scale);
 	moon->set_pos(earth->get_ref_pos() + Vector(meters_to_dist_unit(DarkStar::UserLib::distance_from_moon_to_earth_m), 0, 0));
 	moon->set_vel(Vector(0, 0, k_meters_to_dist_unit(0.7)));
 	moon->set_color(Color::white());
@@ -136,10 +140,19 @@ static void quit_callback (const MyGlib::Event::Quit::Type& event)
 
 static fp_t setup_step (const fp_t real_dt)
 {
+	const fp_t virtual_dt = real_dt * fp(3600) * fp(24);
+	n_steps = 24*60;
+
+	return virtual_dt;
+}
+
+// -------------------------------------------
+
+static void setup_render ()
+{
 	Vector e_pos = earth->get_value_pos();
 
-	world_camera_vector = Vector(1, -1, 1);
-	world_camera_vector.set_length(k_meters_to_dist_unit(5e5));
+	world_camera_vector = Mylib::Math::with_length(Vector(1, -1, 1), k_meters_to_dist_unit(5e5));
 	world_camera_target = earth->get_ref_pos();
 	world_camera_pos = world_camera_target - world_camera_vector;
 	//Point center = (earth->get_ref_pos() + moon->get_ref_pos()) / fp(2);
@@ -150,15 +163,6 @@ static fp_t setup_step (const fp_t real_dt)
 	//world_camera_target = center;
 
 	n_body->setup_render(world_camera_pos, world_camera_target);
-
-	dprintln("earth pos=", earth->get_ref_pos(), " r=", earth->get_radius());
-	//dprintln("moon pos=", moon->get_ref_pos(), " r=", moon->get_radius());
-
-	const fp_t virtual_dt = real_dt * fp(3600) * fp(24);
-	n_steps = 24*60;
-
-//exit(1);
-	return virtual_dt;
 }
 
 // -------------------------------------------
@@ -181,7 +185,7 @@ static void main_loop ()
 		ClockTime tend;
 		ClockDuration elapsed;
 
-	#if 1
+	#if 0
 		dprintln("----------------------------------------------");
 		dprintln("start new frame render target_dt=", Config::target_dt,
 			" required_dt=", required_dt,
@@ -196,6 +200,7 @@ static void main_loop ()
 		DarkStar::event_manager->process_events();
 		const fp_t virtual_dt = setup_step(real_dt);
 		n_body->simulate_step(virtual_dt, n_steps);
+		setup_render();
 		n_body->render();
 
 		const ClockTime trequired = Clock::now();
