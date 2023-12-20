@@ -100,11 +100,6 @@ public:
 		this->vel += acc_dt;
 	}
 
-	void reset_cycle () noexcept
-	{
-		this->rforce.set_zero();
-	}
-
 	void render ();
 
 	auto& get_type_specific () noexcept

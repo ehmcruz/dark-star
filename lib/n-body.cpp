@@ -24,12 +24,15 @@ N_Body::N_Body (const std::size_t max_elements_)
 	this->render_opts.z_near = 0.1f;
 	this->render_opts.z_far = 100.0f;
 	this->render_opts.ambient_light_color = {1, 1, 1, 0.2};
+
+	this->gravity_solver = new SimpleGravitySolver(this->bodies);
 }
 
 // ---------------------------------------------------
 
 N_Body::~N_Body ()
 {
+	delete this->gravity_solver;
 }
 
 // ---------------------------------------------------
@@ -57,14 +60,23 @@ Body& N_Body::add_body (const Body& body)
 
 // ---------------------------------------------------
 
-void N_Body::simulate_step (const fp_t dt)
+void N_Body::simulate_step (const fp_t dt_, const std::size_t n_steps)
 {
-	dprintln("N_Body::simulate_step: dt = ", dt);
+	const fp_t dt = dt_ / static_cast<fp_t>(n_steps);
 
-	for (Body& body : this->bodies)
-		body.process_physics(dt);
+	for (uint32_t i = 0; i < n_steps; i++) {
+//		dprintln("N_Body::simulate_step: dt = ", dt);
 
-	dprintln("N_Body::simulate_step: finished processing physics");
+		for (Body& body : this->bodies)
+			body.get_ref_rforce().set_zero();
+		
+		this->gravity_solver->calc_gravity();
+
+		for (Body& body : this->bodies)
+			body.process_physics(dt);
+
+//		dprintln("N_Body::simulate_step: finished processing physics");
+	}
 }
 
 // ---------------------------------------------------
@@ -76,7 +88,7 @@ void N_Body::render ()
 	this->render_opts.world_camera_pos = this->to_graphics_dist(this->camera_pos);
 	this->render_opts.world_camera_target = this->to_graphics_dist(this->camera_target);
 
-	this->render_opts.z_near = this->to_graphics_dist(meters_to_dist_unit(fp(100)));
+	this->render_opts.z_near = this->to_graphics_dist(k_meters_to_dist_unit(fp(1e4)));
 	this->render_opts.z_far = this->to_graphics_dist(k_meters_to_dist_unit(fp(1e7)));
 
 	renderer->setup_render_3D(this->render_opts);

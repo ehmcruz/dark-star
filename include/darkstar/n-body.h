@@ -43,7 +43,7 @@ public:
 
 	Body& add_body (const Body& body);
 	
-	void simulate_step (const fp_t dt);
+	void simulate_step (const fp_t dt_, const std::size_t n_steps = 1);
 
 	inline void setup_render (const Point& camera_pos, const Point& camera_target) noexcept
 	{

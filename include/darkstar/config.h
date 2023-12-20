@@ -16,7 +16,8 @@ namespace DarkStar
 
 namespace Config
 {
-	inline constexpr fp_t meters_to_dist_unit_exp = 16;
+	inline constexpr fp_t distance_exp_factor = 9;
+	inline constexpr fp_t mass_exp_factor = 9;
 }
 
 // ---------------------------------------------------

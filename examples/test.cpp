@@ -51,16 +51,15 @@ using DarkStar::audio_manager;
 
 using DarkStar::fp;
 using DarkStar::gfp;
+using DarkStar::meters_to_dist_unit;
 using DarkStar::k_meters_to_dist_unit;
 using DarkStar::kg_to_mass_unit;
 
 // -------------------------------------------
 
 namespace Config {
-	inline constexpr fp_t target_fps = 30.0;
-	inline constexpr fp_t min_fps = 20.0; // if fps gets lower than min_fps, we slow down the simulation
+	inline constexpr fp_t target_fps = 60.0;
 	inline constexpr fp_t target_dt = 1.0 / target_fps;
-	inline constexpr fp_t max_dt = 1.0 / min_fps;
 	inline constexpr fp_t sleep_threshold = target_dt * 0.9;
 	inline constexpr bool sleep_to_save_cpu = true;
 	inline constexpr bool busy_wait_to_ensure_fps = true;
@@ -79,6 +78,8 @@ Body *sun = nullptr;
 Point world_camera_pos;
 Point world_camera_target;
 Point world_camera_vector;
+
+std::size_t n_steps = 1;
 
 // -------------------------------------------
 
@@ -103,13 +104,15 @@ static void load ()
 	earth->set_color(Color::blue());
 
 	moon = &n_body->add_body(DarkStar::UserLib::make_moon());
-	moon->set_pos(earth->get_ref_pos() + Vector(k_meters_to_dist_unit(384400), 0, 0));
+	moon->set_pos(earth->get_ref_pos() + Vector(meters_to_dist_unit(DarkStar::UserLib::distance_from_moon_to_earth_m), 0, 0));
+	moon->set_vel(Vector(0, 0, k_meters_to_dist_unit(0.7)));
 	moon->set_color(Color::white());
 
 	sun = &n_body->add_body(DarkStar::UserLib::make_sun());
-	sun->set_radius(earth->get_radius() * fp(2));
-	sun->set_pos((earth->get_ref_pos() + moon->get_ref_pos()) / fp(2));
-	sun->get_ref_pos().z -= k_meters_to_dist_unit(30000);
+	//sun->set_radius(earth->get_radius() * fp(2));
+	//sun->set_pos((earth->get_ref_pos() + moon->get_ref_pos()) / fp(2));
+	sun->set_pos(earth->get_ref_pos());
+	sun->get_ref_pos().z -= meters_to_dist_unit(DarkStar::UserLib::distance_from_earth_to_sun_m);
 	sun->set_color(Color::green());
 
 	std::cout << std::setprecision(30);
@@ -131,13 +134,13 @@ static void quit_callback (const MyGlib::Event::Quit::Type& event)
 
 // -------------------------------------------
 
-static fp_t setup_step (fp_t virtual_dt)
+static fp_t setup_step (const fp_t real_dt)
 {
 	Vector e_pos = earth->get_value_pos();
 
 	world_camera_vector = Vector(1, -1, 1);
-	world_camera_vector.set_length(k_meters_to_dist_unit(300000));
-	world_camera_target = sun->get_ref_pos();
+	world_camera_vector.set_length(k_meters_to_dist_unit(5e5));
+	world_camera_target = earth->get_ref_pos();
 	world_camera_pos = world_camera_target - world_camera_vector;
 	//Point center = (earth->get_ref_pos() + moon->get_ref_pos()) / fp(2);
 	//world_camera_pos = center;
@@ -151,6 +154,9 @@ static fp_t setup_step (fp_t virtual_dt)
 	dprintln("earth pos=", earth->get_ref_pos(), " r=", earth->get_radius());
 	//dprintln("moon pos=", moon->get_ref_pos(), " r=", moon->get_radius());
 
+	const fp_t virtual_dt = real_dt * fp(3600) * fp(24);
+	n_steps = 24*60;
+
 //exit(1);
 	return virtual_dt;
 }
@@ -160,12 +166,11 @@ static fp_t setup_step (fp_t virtual_dt)
 static void main_loop ()
 {
 	const Uint8 *keys;
-	fp_t real_dt, virtual_dt, required_dt, sleep_dt, busy_wait_dt, fps;
+	fp_t real_dt, required_dt, sleep_dt, busy_wait_dt, fps;
 
 	keys = SDL_GetKeyboardState(nullptr);
 
 	real_dt = 0;
-	virtual_dt = 0;
 	required_dt = 0;
 	sleep_dt = 0;
 	busy_wait_dt = 0;
@@ -176,8 +181,6 @@ static void main_loop ()
 		ClockTime tend;
 		ClockDuration elapsed;
 
-		virtual_dt = (real_dt > Config::max_dt) ? Config::max_dt : real_dt;
-
 	#if 1
 		dprintln("----------------------------------------------");
 		dprintln("start new frame render target_dt=", Config::target_dt,
@@ -185,16 +188,14 @@ static void main_loop ()
 			" real_dt=", real_dt,
 			" sleep_dt=", sleep_dt,
 			" busy_wait_dt=", busy_wait_dt,
-			" virtual_dt=", virtual_dt,
-			" max_dt=", Config::max_dt,
 			" target_dt=", Config::target_dt,
 			" fps=", fps
 			);
 	#endif
 
 		DarkStar::event_manager->process_events();
-		virtual_dt = setup_step(virtual_dt);
-		//n_body->simulate_step(virtual_dt);
+		const fp_t virtual_dt = setup_step(real_dt);
+		n_body->simulate_step(virtual_dt, n_steps);
 		n_body->render();
 
 		const ClockTime trequired = Clock::now();
