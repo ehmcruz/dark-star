@@ -115,9 +115,9 @@ constexpr fp_t dist_unit_to_k_meters (const fp_t dist_unit) noexcept
 
 // ---------------------------------------------------
 
-constexpr Vector3f to_vec3f (const Vector3& vec) noexcept
+constexpr gVector to_gVector (const Vector& vec) noexcept
 {
-	return Vector3f(vec.x, vec.y, vec.z);
+	return gVector(vec.x, vec.y, vec.z);
 }
 
 // ---------------------------------------------------

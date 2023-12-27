@@ -4,6 +4,9 @@
 // ---------------------------------------------------
 
 #include <variant>
+#include <string_view>
+
+#include <cmath>
 
 #include <my-lib/macros.h>
 #include <my-lib/std.h>
@@ -21,6 +24,8 @@ namespace DarkStar
 // ---------------------------------------------------
 
 using MyGlib::Graphics::Color;
+using MyGlib::Graphics::TextureDescriptor;
+using MyGlib::Graphics::TextureRenderOptions;
 using MyGlib::Graphics::Shape;
 using MyGlib::Graphics::Cube3D;
 using MyGlib::Graphics::Sphere3D;
@@ -40,6 +45,7 @@ using MyGlib::Graphics::Sphere3D;
 */
 
 class N_Body;
+struct BodyDescriptor;
 
 class Body
 {
@@ -58,6 +64,15 @@ public:
 	};
 
 protected:
+	struct RenderColor {
+		Color color;
+	};
+
+	struct RenderTexture {
+		TextureDescriptor texture_desc;
+	};
+
+protected:
 	OO_ENCAPSULATE_SCALAR(Type, type)
 	OO_ENCAPSULATE_SCALAR(fp_t, mass)
 	OO_ENCAPSULATE_SCALAR(fp_t, radius)
@@ -66,7 +81,8 @@ protected:
 	OO_ENCAPSULATE_SCALAR_READONLY(Shape::Type, shape_type)
 
 	OO_ENCAPSULATE_OBJ_INIT(Vector, self_force, Vector::zero())
-	OO_ENCAPSULATE_OBJ_INIT(Color, color, Color::white())
+	OO_ENCAPSULATE_SCALAR_INIT(fp_t, angular_velocity, 0)
+	OO_ENCAPSULATE_SCALAR_INIT(fp_t, rotation_angle, 0)
 
 	// resulting force of a simulation step
 	// must be reset to zero before each step
@@ -76,18 +92,10 @@ protected:
 
 	std::variant<Cube3D, Sphere3D> shape;
 	std::variant<Star, Planet> type_specific;
+	std::variant<RenderColor, RenderTexture> render_specific;
 
 public:
-	Body (const Type type_, const fp_t mass_, const fp_t radius_, const Point& pos_, const Vector& vel_, const Shape::Type shape_type_)
-		: type(type_), mass(mass_), radius(radius_), pos(pos_), vel(vel_), shape_type(shape_type_)
-	{
-		if (this->shape_type == Shape::Type::Sphere3D)
-			this->shape = Sphere3D(this->radius);
-		else if (this->shape_type == Shape::Type::Cube3D)
-			this->shape = Cube3D(this->radius * fp(2));
-		else
-			mylib_throw_exception_msg("invalid shape type");
-	}
+	Body (const BodyDescriptor& desc);
 
 	void process_physics (const fp_t dt) noexcept
 	{
@@ -95,6 +103,7 @@ public:
 		const Vector acc_dt = this->rforce / (this->mass / dt);
 		this->pos += this->vel * dt + acc_dt * (dt / fp(2));
 		this->vel += acc_dt;
+		this->rotation_angle = std::fmod(this->rotation_angle + this->angular_velocity * dt, Mylib::Math::degrees_to_radians(fp(360)));
 	}
 
 	void render ();
@@ -108,6 +117,32 @@ public:
 	{
 		return this->type_specific;
 	}
+
+	void set_color (const Color& color) noexcept
+	{
+		this->render_specific = RenderColor { .color = color };
+	}
+
+	void set_texture (const TextureDescriptor& texture_desc) noexcept
+	{
+		this->render_specific = RenderTexture {
+			.texture_desc = texture_desc
+			};
+	}
+
+	void setup_rotation (const fp_t angular_velocity, const Vector& axis);
+};
+
+// ---------------------------------------------------
+
+struct BodyDescriptor
+{
+	Body::Type type;
+	fp_t mass;
+	fp_t radius;
+	Point pos;
+	Vector vel;
+	Shape::Type shape_type;
 };
 
 // ---------------------------------------------------

@@ -33,6 +33,7 @@ using DarkStar::Shape;
 
 using MyGlib::dprint;
 using MyGlib::dprintln;
+using MyGlib::Graphics::TextureDescriptor;
 
 using Clock = std::chrono::steady_clock;
 using ClockDuration = Clock::duration;
@@ -83,6 +84,11 @@ std::size_t n_steps = 1;
 
 // -------------------------------------------
 
+TextureDescriptor texture_earth;
+TextureDescriptor texture_moon;
+
+// -------------------------------------------
+
 constexpr ClockDuration fp_to_ClockDuration (const fp_t t)
 {
 	return std::chrono::duration_cast<ClockDuration>(std::chrono::duration<fp_t>(t));
@@ -97,20 +103,26 @@ constexpr fp_t ClockDuration_to_fp (const ClockDuration& d)
 
 static void load ()
 {
-	constexpr fp_t scale = 8;
+	constexpr fp_t scale = 18;
+
+	renderer->begin_texture_loading();
+	texture_earth = renderer->load_texture("assets/earth-medium.jpg");
+	texture_moon = renderer->load_texture("assets/moon-medium.jpg");
+	renderer->end_texture_loading();
 
 	n_body = new DarkStar::N_Body(1000);
 
 	earth = &n_body->add_body(DarkStar::UserLib::make_earth());
 	earth->set_radius(earth->get_radius() * scale);
 	//earth = &n_body->add_body(Body(kg_to_mass_unit(1000), k_meters_to_dist_unit(0.5), Vector::zero(), Vector::zero(), Shape::Type::Cube3D));
-	earth->set_color(Color::blue());
+	earth->set_texture(texture_earth);
+	earth->set_angular_velocity(earth->get_angular_velocity() * fp(-0.25));
 
 	moon = &n_body->add_body(DarkStar::UserLib::make_moon());
 	moon->set_radius(moon->get_radius() * scale);
 	moon->set_pos(earth->get_ref_pos() + Vector(meters_to_dist_unit(DarkStar::UserLib::distance_from_moon_to_earth_m), 0, 0));
-	moon->set_vel(Vector(0, 0, k_meters_to_dist_unit(0.7)));
-	moon->set_color(Color::white());
+	moon->set_vel(Vector(0, 0, k_meters_to_dist_unit(0.9)));
+	moon->set_texture(texture_moon);
 
 	sun = &n_body->add_body(DarkStar::UserLib::make_sun());
 	//sun->set_radius(earth->get_radius() * fp(2));
@@ -152,7 +164,7 @@ static void setup_render ()
 {
 	Vector e_pos = earth->get_value_pos();
 
-	world_camera_vector = Mylib::Math::with_length(Vector(1, -1, 1), k_meters_to_dist_unit(5e5));
+	world_camera_vector = Mylib::Math::with_length(Vector(1, -0.5, 1), k_meters_to_dist_unit(6e5));
 	world_camera_target = earth->get_ref_pos();
 	world_camera_pos = world_camera_target - world_camera_vector;
 	//Point center = (earth->get_ref_pos() + moon->get_ref_pos()) / fp(2);

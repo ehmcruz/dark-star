@@ -19,8 +19,8 @@ ifdef MYGLIB_TARGET_LINUX
 	CPPFLAGS +=
 	LDFLAGS += -lm
 
-	CPPFLAGS += -DMYGLIB_SUPPORT_SDL=1 `pkg-config --cflags sdl2 SDL2_mixer`
-	LDFLAGS += `pkg-config --libs sdl2 SDL2_mixer`
+	CPPFLAGS += -DMYGLIB_SUPPORT_SDL=1 `pkg-config --cflags sdl2 SDL2_mixer SDL2_image`
+	LDFLAGS += `pkg-config --libs sdl2 SDL2_mixer SDL2_image`
 
 	CPPFLAGS += -DMYGLIB_SUPPORT_OPENGL=1
 	LDFLAGS += -lGL -lGLEW
