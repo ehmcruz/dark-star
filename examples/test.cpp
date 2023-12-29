@@ -158,7 +158,7 @@ static void load ()
 	std::random_device rd;
 	rgenerator.seed( rd() );
 
-	constexpr fp_t scale = 5;
+	constexpr fp_t scale = 10;
 
 	renderer->begin_texture_loading();
 	texture_earth = renderer->load_texture("assets/earth-medium.jpg");
