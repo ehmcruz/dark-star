@@ -1,3 +1,7 @@
+#include <array>
+#include <algorithm>
+#include <ranges>
+
 #include <cmath>
 
 #include <darkstar/types.h>
@@ -64,6 +68,8 @@ void N_Body::simulate_step (const fp_t dt_, const std::size_t n_steps)
 {
 	const fp_t dt = dt_ / static_cast<fp_t>(n_steps);
 
+//	dprintln("N_Body::simulate_step: dt = ", dt, ", n_steps = ", n_steps);
+
 	for (uint32_t i = 0; i < n_steps; i++) {
 //		dprintln("N_Body::simulate_step: dt = ", dt);
 
@@ -83,27 +89,70 @@ void N_Body::simulate_step (const fp_t dt_, const std::size_t n_steps)
 
 void N_Body::render ()
 {
+	struct Range {
+		float z_near;
+		float z_far;
+	};
+
+	static constexpr auto z_ranges = [] () -> auto {
+		struct DoubleRange {
+			double z_near;
+			double z_far;
+		};
+		auto dist_list_meters = std::to_array<DoubleRange>({
+			{ .z_near = 0.1, .z_far = 1e2 },
+			{ .z_near = 1e2, .z_far = 1e5 },
+			{ .z_near = 1e5, .z_far = 1e8 },
+			{ .z_near = 1e8, .z_far = 1e11 },
+			{ .z_near = 1e11, .z_far = 1e14 },
+		});
+
+		std::ranges::reverse(dist_list_meters);
+
+		std::array<Range, dist_list_meters.size()> dist_list;
+
+		for (uint32_t i = 0; i < dist_list_meters.size(); i++) {
+			dist_list[i].z_near = to_graphics_dist(meters_to_dist_unit(dist_list_meters[i].z_near));
+			dist_list[i].z_far = to_graphics_dist(meters_to_dist_unit(dist_list_meters[i].z_far));
+		}
+
+		return dist_list;
+	}();
+
 //	dprintln("N_Body::render");
 
 	this->render_opts.world_camera_pos = to_graphics_dist(this->camera_pos);
 	this->render_opts.world_camera_target = to_graphics_dist(this->camera_target);
-
-	this->render_opts.z_near = to_graphics_dist(k_meters_to_dist_unit(fp(1e4)));
-	this->render_opts.z_far = to_graphics_dist(k_meters_to_dist_unit(fp(1e7)));
-
-	renderer->setup_render_3D(this->render_opts);
-
-	renderer->wait_next_frame();
 
 	for (Body *star : this->stars) {
 		Body::Star& star_specific = std::get<Body::Star>(star->get_type_specific());
 		renderer->move_light_point_source(star_specific.light_desc, to_graphics_dist(star->get_ref_pos()));
 	}
 
-	for (Body& body : this->bodies)
-		body.render();
+	renderer->wait_next_frame();
 
-	renderer->render();
+	for (bool first = true; const Range& range : z_ranges) {
+		if (!first) [[likely]]
+			renderer->clear_buffers(MyGlib::Graphics::Manager::VertexBufferBit | MyGlib::Graphics::Manager::DepthBufferBit);
+		else
+			first = false;
+
+		this->render_opts.z_near = range.z_near;
+		this->render_opts.z_far = range.z_far;
+
+//		dprintln("N_Body::render: rendering range: z_near = ", range.z_near, ", z_far = ", range.z_far);
+
+//	this->render_opts.z_near = to_graphics_dist(k_meters_to_dist_unit(fp(1e4)));
+//	this->render_opts.z_far = to_graphics_dist(k_meters_to_dist_unit(fp(1e7)));
+
+		renderer->setup_render_3D(this->render_opts);
+
+		for (Body& body : this->bodies)
+			body.render();
+
+		renderer->render();
+	}
+
 	renderer->update_screen();
 
 //	dprintln("N_Body::render: finished rendering");

@@ -10,7 +10,7 @@ TESTS_SRC := $(wildcard examples/*.cpp)
 MYLIB = ../my-lib
 MYGLIB = ../my-game-lib
 
-CPPFLAGS = -std=c++23 -Wall -g -I$(MYLIB)/include -I$(MYGLIB)/include -I./include -DMYGLIB_FP_TYPE=float
+CPPFLAGS = -std=c++23 -O3 -Wall -g -I$(MYLIB)/include -I$(MYGLIB)/include -I./include -DMYGLIB_FP_TYPE=float
 LDFLAGS = -std=c++23
 
 # ----------------------------------

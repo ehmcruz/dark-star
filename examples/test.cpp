@@ -2,6 +2,8 @@
 #include <exception>
 #include <chrono>
 #include <thread>
+#include <list>
+#include <random>
 
 #include <cstdlib>
 #include <cmath>
@@ -20,6 +22,7 @@
 #include <darkstar/user-lib.h>
 
 #include <my-lib/math.h>
+#include <my-lib/math-vector.h>
 
 // -------------------------------------------
 
@@ -28,7 +31,11 @@ namespace App
 
 // -------------------------------------------
 
+using Mylib::Math::degrees_to_radians;
+using Mylib::Math::normalize;
+
 using DarkStar::Body;
+using DarkStar::BodyDescriptor;
 using DarkStar::Shape;
 
 using MyGlib::dprint;
@@ -82,6 +89,10 @@ Point world_camera_vector;
 
 std::size_t n_steps = 1;
 
+std::list<Body*> cubes;
+
+std::mt19937_64 rgenerator;
+
 // -------------------------------------------
 
 TextureDescriptor texture_earth;
@@ -101,9 +112,53 @@ constexpr fp_t ClockDuration_to_fp (const ClockDuration& d)
 
 // -------------------------------------------
 
+Vector gen_random_vector (const fp_t min, const fp_t max, const fp_t min_length)
+{
+	Vector v;
+
+	std::uniform_real_distribution<fp_t> dist(min, max);
+
+	do {
+		v = Vector(dist(rgenerator), 0, dist(rgenerator));
+	} while (v.length() < k_meters_to_dist_unit(min_length));
+	
+	return v;
+}
+
+Body create_random_cube ()
+{
+	auto b = Body (BodyDescriptor {
+		.type = Body::Type::Satellite,
+		.mass = kg_to_mass_unit(1000),
+		.radius = k_meters_to_dist_unit(10000),
+		.pos = earth->get_ref_pos() + gen_random_vector(k_meters_to_dist_unit(-300000), k_meters_to_dist_unit(300000), k_meters_to_dist_unit(150000)),
+		.vel = gen_random_vector(-k_meters_to_dist_unit(0.9), k_meters_to_dist_unit(0.9), k_meters_to_dist_unit(0.3)),
+		.shape_type = Shape::Type::Cube3D
+		});
+
+	b.set_color(Color::random(rgenerator));
+	b.setup_rotation(degrees_to_radians(fp(360) / fp(60*60*24)), normalize(gen_random_vector(-1, 1, 0.1)));
+
+	dprintln("create_random_cube: pos=", b.get_ref_pos(), " vel=", b.get_ref_vel());
+
+	return b;
+}
+
+void create_cubes (const uint32_t n)
+{
+	for (uint32_t i = 0; i < n; i++) {
+		cubes.push_back(&n_body->add_body(create_random_cube()));
+	}
+}
+
+// -------------------------------------------
+
 static void load ()
 {
-	constexpr fp_t scale = 18;
+	std::random_device rd;
+	rgenerator.seed( rd() );
+
+	constexpr fp_t scale = 5;
 
 	renderer->begin_texture_loading();
 	texture_earth = renderer->load_texture("assets/earth-medium.jpg");
@@ -130,6 +185,8 @@ static void load ()
 	sun->set_pos(earth->get_ref_pos());
 	sun->get_ref_pos().z -= meters_to_dist_unit(DarkStar::UserLib::distance_from_earth_to_sun_m);
 	sun->set_color(Color::green());
+
+	create_cubes(10);
 
 	std::cout << std::setprecision(30);
 }
