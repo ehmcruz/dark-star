@@ -52,18 +52,6 @@ public:
 	}
 
 	void render ();
-
-	constexpr gfp_t to_graphics_dist (const fp_t v) const noexcept
-	{
-		return static_cast<gfp_t>(v / fp(1e6));
-	}
-
-	constexpr gVector to_graphics_dist (const Vector& v) const noexcept
-	{
-		return gVector(this->to_graphics_dist(v.x),
-		               this->to_graphics_dist(v.y),
-					   this->to_graphics_dist(v.z));
-	}
 };
 
 // ---------------------------------------------------

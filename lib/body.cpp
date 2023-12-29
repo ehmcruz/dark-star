@@ -22,9 +22,9 @@ Body::Body (const BodyDescriptor& desc)
   shape_type(desc.shape_type)
 {
 	if (this->shape_type == Shape::Type::Sphere3D)
-		this->shape = Sphere3D(this->radius);
+		this->shape = Sphere3D(to_graphics_dist(this->radius));
 	else if (this->shape_type == Shape::Type::Cube3D)
-		this->shape = Cube3D(this->radius * fp(2));
+		this->shape = Cube3D(to_graphics_dist(this->radius * fp(2)));
 	else
 		mylib_throw_exception_msg("invalid shape type");
 
@@ -35,18 +35,15 @@ Body::Body (const BodyDescriptor& desc)
 
 void Body::render ()
 {
-	const gfp_t gradius = this->n_body->to_graphics_dist(this->radius);
-
 	switch (this->shape_type) {
 		case Shape::Type::Sphere3D: {
 			Sphere3D& sphere = std::get<Sphere3D>(this->shape);
-			sphere.set_radius(gradius);
 			sphere.rotate(this->rotation_angle);
 
 			if (std::holds_alternative<RenderColor>(this->render_specific))
-				renderer->draw_sphere3D(sphere, this->n_body->to_graphics_dist(this->pos), std::get<RenderColor>(this->render_specific).color);
+				renderer->draw_sphere3D(sphere, to_graphics_dist(this->pos), std::get<RenderColor>(this->render_specific).color);
 			else if (std::holds_alternative<RenderTexture>(this->render_specific))
-				renderer->draw_sphere3D(sphere, this->n_body->to_graphics_dist(this->pos), { .desc = std::get<RenderTexture>(this->render_specific).texture_desc });
+				renderer->draw_sphere3D(sphere, to_graphics_dist(this->pos), { .desc = std::get<RenderTexture>(this->render_specific).texture_desc });
 			else
 				mylib_throw_exception_msg("invalid render specific type");
 		}
@@ -54,13 +51,12 @@ void Body::render ()
 
 		case Shape::Type::Cube3D: {
 			Cube3D& cube = std::get<Cube3D>(this->shape);
-			cube.set_size(gradius);
 			cube.rotate(this->rotation_angle);
 
 			if (std::holds_alternative<RenderColor>(this->render_specific))
-				renderer->draw_cube3D(cube, this->n_body->to_graphics_dist(this->pos), std::get<RenderColor>(this->render_specific).color);
+				renderer->draw_cube3D(cube, to_graphics_dist(this->pos), std::get<RenderColor>(this->render_specific).color);
 			else if (std::holds_alternative<RenderTexture>(this->render_specific))
-				renderer->draw_cube3D(cube, this->n_body->to_graphics_dist(this->pos), { .desc = std::get<RenderTexture>(this->render_specific).texture_desc });
+				renderer->draw_cube3D(cube, to_graphics_dist(this->pos), { .desc = std::get<RenderTexture>(this->render_specific).texture_desc });
 			else
 				mylib_throw_exception_msg("invalid render specific type");
 		}
@@ -87,6 +83,25 @@ void Body::setup_rotation (const fp_t angular_velocity, const Vector& axis)
 		case Shape::Type::Cube3D: {
 			Cube3D& cube = std::get<Cube3D>(this->shape);
 			cube.rotate(to_gVector(axis), 0);
+		}
+		break;
+	}
+}
+
+// ---------------------------------------------------
+
+void Body::update_radius ()
+{
+	switch (this->shape_type) {
+		case Shape::Type::Sphere3D: {
+			Sphere3D& sphere = std::get<Sphere3D>(this->shape);
+			sphere.set_radius(to_graphics_dist(this->radius));
+		}
+		break;
+
+		case Shape::Type::Cube3D: {
+			Cube3D& cube = std::get<Cube3D>(this->shape);
+			cube.set_size(to_graphics_dist(this->radius * fp(2)));
 		}
 		break;
 	}

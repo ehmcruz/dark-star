@@ -85,11 +85,11 @@ void N_Body::render ()
 {
 //	dprintln("N_Body::render");
 
-	this->render_opts.world_camera_pos = this->to_graphics_dist(this->camera_pos);
-	this->render_opts.world_camera_target = this->to_graphics_dist(this->camera_target);
+	this->render_opts.world_camera_pos = to_graphics_dist(this->camera_pos);
+	this->render_opts.world_camera_target = to_graphics_dist(this->camera_target);
 
-	this->render_opts.z_near = this->to_graphics_dist(k_meters_to_dist_unit(fp(1e4)));
-	this->render_opts.z_far = this->to_graphics_dist(k_meters_to_dist_unit(fp(1e7)));
+	this->render_opts.z_near = to_graphics_dist(k_meters_to_dist_unit(fp(1e4)));
+	this->render_opts.z_far = to_graphics_dist(k_meters_to_dist_unit(fp(1e7)));
 
 	renderer->setup_render_3D(this->render_opts);
 
@@ -97,7 +97,7 @@ void N_Body::render ()
 
 	for (Body *star : this->stars) {
 		Body::Star& star_specific = std::get<Body::Star>(star->get_type_specific());
-		renderer->move_light_point_source(star_specific.light_desc, this->to_graphics_dist(star->get_ref_pos()));
+		renderer->move_light_point_source(star_specific.light_desc, to_graphics_dist(star->get_ref_pos()));
 	}
 
 	for (Body& body : this->bodies)

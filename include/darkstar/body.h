@@ -75,7 +75,7 @@ protected:
 protected:
 	OO_ENCAPSULATE_SCALAR(Type, type)
 	OO_ENCAPSULATE_SCALAR(fp_t, mass)
-	OO_ENCAPSULATE_SCALAR(fp_t, radius)
+	OO_ENCAPSULATE_SCALAR_REACT(fp_t, radius, this->update_radius();)
 	OO_ENCAPSULATE_OBJ(Point, pos)
 	OO_ENCAPSULATE_OBJ(Vector, vel)
 	OO_ENCAPSULATE_SCALAR_READONLY(Shape::Type, shape_type)
@@ -131,6 +131,7 @@ public:
 	}
 
 	void setup_rotation (const fp_t angular_velocity, const Vector& axis);
+	void update_radius ();
 };
 
 // ---------------------------------------------------

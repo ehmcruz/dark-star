@@ -120,6 +120,18 @@ constexpr gVector to_gVector (const Vector& vec) noexcept
 	return gVector(vec.x, vec.y, vec.z);
 }
 
+constexpr gfp_t to_graphics_dist (const fp_t v) noexcept
+{
+	return static_cast<gfp_t>(v / Config::graphics_factor);
+}
+
+constexpr gVector to_graphics_dist (const Vector& v) noexcept
+{
+	return gVector(to_graphics_dist(v.x),
+				   to_graphics_dist(v.y),
+				   to_graphics_dist(v.z));
+}
+
 // ---------------------------------------------------
 
 } // end namespace
