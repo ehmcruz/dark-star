@@ -119,7 +119,7 @@ Vector gen_random_vector (const fp_t min, const fp_t max, const fp_t min_length)
 	std::uniform_real_distribution<fp_t> dist(min, max);
 
 	do {
-		v = Vector(dist(rgenerator), 0, dist(rgenerator));
+		v = Vector(dist(rgenerator), dist(rgenerator), dist(rgenerator));
 	} while (v.length() < k_meters_to_dist_unit(min_length));
 	
 	return v;
@@ -186,7 +186,7 @@ static void load ()
 	sun->get_ref_pos().z -= meters_to_dist_unit(DarkStar::UserLib::distance_from_earth_to_sun_m);
 	sun->set_color(Color::green());
 
-	create_cubes(3000);
+	create_cubes(5000);
 
 	std::cout << std::setprecision(2);
 }
