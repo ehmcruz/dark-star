@@ -79,7 +79,7 @@ void SimpleParallelGravitySolver::calc_gravity ()
 			}
 		}, nt * 2); // see the below comment about this number
 		// We create twice the number of blocks as threads to try to
-		// balence the load between the threads, since the load of
+		// balance the load between the threads, since the load of
 		// the blocks are different.
 	
 	this->tpool.wait();
