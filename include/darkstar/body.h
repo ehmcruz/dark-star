@@ -139,21 +139,21 @@ public:
 		is_inside_frustum is used to determine if the body is inside the frustum.
 		Bodies that are outside the frustum are not rendered.
 		z_middle is the z coordinate of the middle of the frustum.
-		z_half_range is the half of the z range of the frustum.
+		z_half_size is the half of the z size of the frustum.
 	*/
 
-	bool is_inside_frustum (const fp_t z_middle, const fp_t z_half_range) const noexcept
+	bool is_inside_frustum (const fp_t z_middle, const fp_t z_half_size) const noexcept
 	{
 		bool r = false;
 		const fp_t distance_between_centers = std::abs(this->distance_to_camera - z_middle);
 
 		switch (this->shape_type) {
 			case Shape::Type::Sphere3D:
-				r = (distance_between_centers <= (this->radius + z_half_range));
+				r = (distance_between_centers <= (this->radius + z_half_size));
 			break;
 
 			case Shape::Type::Cube3D:
-				r = (distance_between_centers <= (this->radius * fp(1.5) + z_half_range));
+				r = (distance_between_centers <= (this->radius * fp(1.5) + z_half_size));
 			break;
 		}
 

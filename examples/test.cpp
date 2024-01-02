@@ -66,7 +66,7 @@ using DarkStar::kg_to_mass_unit;
 // -------------------------------------------
 
 namespace Config {
-	inline constexpr fp_t target_fps = 60.0;
+	inline constexpr fp_t target_fps = 30.0;
 	inline constexpr fp_t target_dt = 1.0 / target_fps;
 	inline constexpr fp_t sleep_threshold = target_dt * 0.9;
 	inline constexpr bool sleep_to_save_cpu = true;
@@ -130,7 +130,7 @@ Body create_random_cube ()
 	auto b = Body (BodyDescriptor {
 		.type = Body::Type::Satellite,
 		.mass = kg_to_mass_unit(1000),
-		.radius = k_meters_to_dist_unit(10000),
+		.radius = k_meters_to_dist_unit(2000),
 		.pos = earth->get_ref_pos() + gen_random_vector(k_meters_to_dist_unit(-300000), k_meters_to_dist_unit(300000), k_meters_to_dist_unit(150000)),
 		.vel = gen_random_vector(-k_meters_to_dist_unit(0.9), k_meters_to_dist_unit(0.9), k_meters_to_dist_unit(0.3)),
 		.shape_type = Shape::Type::Cube3D
@@ -165,13 +165,13 @@ static void load ()
 	texture_moon = renderer->load_texture("assets/moon-medium.jpg");
 	renderer->end_texture_loading();
 
-	n_body = new DarkStar::N_Body(1000);
+	n_body = new DarkStar::N_Body(10000);
 
 	earth = &n_body->add_body(DarkStar::UserLib::make_earth());
 	earth->set_radius(earth->get_radius() * scale);
 	//earth = &n_body->add_body(Body(kg_to_mass_unit(1000), k_meters_to_dist_unit(0.5), Vector::zero(), Vector::zero(), Shape::Type::Cube3D));
 	earth->set_texture(texture_earth);
-	earth->set_angular_velocity(earth->get_angular_velocity() * fp(-0.25));
+	earth->set_angular_velocity(-earth->get_angular_velocity());
 
 	moon = &n_body->add_body(DarkStar::UserLib::make_moon());
 	moon->set_radius(moon->get_radius() * scale);
@@ -186,7 +186,7 @@ static void load ()
 	sun->get_ref_pos().z -= meters_to_dist_unit(DarkStar::UserLib::distance_from_earth_to_sun_m);
 	sun->set_color(Color::green());
 
-	create_cubes(10);
+	create_cubes(3000);
 
 	std::cout << std::setprecision(2);
 }
@@ -209,8 +209,9 @@ static void quit_callback (const MyGlib::Event::Quit::Type& event)
 
 static fp_t setup_step (const fp_t real_dt)
 {
-	const fp_t virtual_dt = real_dt * fp(3600) * fp(24);
-	n_steps = 24*60;
+	const fp_t virtual_dt = real_dt * fp(3600) * fp(4);
+	//n_steps = 60; // * 24;
+	n_steps = 1;
 
 	return virtual_dt;
 }
@@ -263,7 +264,6 @@ static void main_loop ()
 			" real_dt=", real_dt,
 			" sleep_dt=", sleep_dt,
 			" busy_wait_dt=", busy_wait_dt,
-			" target_dt=", Config::target_dt,
 			" physics_dt=", physics_dt,
 			" render_dt=", render_dt,
 			" fps=", fps

@@ -50,6 +50,22 @@ public:
 
 // ---------------------------------------------------
 
+class SimpleParallelGravitySolver : public GravitySolver
+{
+private:
+	std::vector<Vector> forces;
+
+public:
+	SimpleParallelGravitySolver (std::vector<Body>& bodies_)
+		: GravitySolver(bodies_)
+	{
+	}
+
+	void calc_gravity () override final;
+};
+
+// ---------------------------------------------------
+
 } // end namespace
 
 #endif

@@ -71,8 +71,6 @@ void N_Body::simulate_step (const fp_t dt_, const std::size_t n_steps)
 //	dprintln("N_Body::simulate_step: dt = ", dt, ", n_steps = ", n_steps);
 
 	for (uint32_t i = 0; i < n_steps; i++) {
-//		dprintln("N_Body::simulate_step: dt = ", dt);
-
 		for (Body& body : this->bodies)
 			body.get_ref_rforce().set_zero();
 		
@@ -80,8 +78,6 @@ void N_Body::simulate_step (const fp_t dt_, const std::size_t n_steps)
 
 		for (Body& body : this->bodies)
 			body.process_physics(dt);
-
-//		dprintln("N_Body::simulate_step: finished processing physics");
 	}
 }
 
@@ -93,7 +89,7 @@ void N_Body::render ()
 		fp_t z_near;
 		fp_t z_far;
 		fp_t z_middle;
-		fp_t z_half_range;
+		fp_t z_half_size;
 		gfp_t graphics_z_near;
 		gfp_t graphics_z_far;
 	};
@@ -119,7 +115,7 @@ void N_Body::render ()
 			dist_list[i].z_near = meters_to_dist_unit(dist_list_meters[i].z_near);
 			dist_list[i].z_far = meters_to_dist_unit(dist_list_meters[i].z_far);
 			dist_list[i].z_middle = (dist_list[i].z_near + dist_list[i].z_far) / fp(2);
-			dist_list[i].z_half_range = (dist_list[i].z_far - dist_list[i].z_near) / fp(2);
+			dist_list[i].z_half_size = (dist_list[i].z_far - dist_list[i].z_near) / fp(2);
 			dist_list[i].graphics_z_near = to_graphics_dist(dist_list[i].z_near);
 			dist_list[i].graphics_z_far = to_graphics_dist(dist_list[i].z_far);
 		}
@@ -161,7 +157,7 @@ void N_Body::render ()
 		renderer->setup_render_3D(this->render_opts);
 
 		for (Body& body : this->bodies) {
-			if (body.is_inside_frustum(range.z_middle, range.z_half_range))
+			if (body.is_inside_frustum(range.z_middle, range.z_half_size))
 				body.render();
 		}
 
