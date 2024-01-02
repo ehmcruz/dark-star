@@ -10,6 +10,8 @@
 #include <darkstar/constants.h>
 #include <darkstar/body.h>
 
+#include <BS_thread_pool.hpp>
+
 // ---------------------------------------------------
 
 namespace DarkStar
@@ -54,12 +56,10 @@ class SimpleParallelGravitySolver : public GravitySolver
 {
 private:
 	std::vector<Vector> forces;
+	BS::thread_pool tpool;
 
 public:
-	SimpleParallelGravitySolver (std::vector<Body>& bodies_)
-		: GravitySolver(bodies_)
-	{
-	}
+	SimpleParallelGravitySolver (std::vector<Body>& bodies_);
 
 	void calc_gravity () override final;
 };

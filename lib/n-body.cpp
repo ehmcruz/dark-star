@@ -30,6 +30,7 @@ N_Body::N_Body (const std::size_t max_elements_)
 	this->render_opts.ambient_light_color = {1, 1, 1, 0.2};
 
 	this->gravity_solver = new SimpleGravitySolver(this->bodies);
+	//this->gravity_solver = new SimpleParallelGravitySolver(this->bodies);
 }
 
 // ---------------------------------------------------

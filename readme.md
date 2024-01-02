@@ -1,8 +1,8 @@
 # Dark-Star project
 
-Dark-Star is s n-body gravity simulator I am developing to learn new things.
+Dark-Star is a n-body gravity simulator I am developing to learn new things.
 
-It simulates a 3D environment and render it using OpenGL.
+It simulates a 3D environment and renders it using OpenGL.    
 Gravity calculation uses Newton's gravity equation.
 
 The project is in very early development process.    
