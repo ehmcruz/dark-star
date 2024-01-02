@@ -90,8 +90,12 @@ void N_Body::simulate_step (const fp_t dt_, const std::size_t n_steps)
 void N_Body::render ()
 {
 	struct Range {
-		float z_near;
-		float z_far;
+		fp_t z_near;
+		fp_t z_far;
+		fp_t z_middle;
+		fp_t z_half_range;
+		gfp_t graphics_z_near;
+		gfp_t graphics_z_far;
 	};
 
 	static constexpr auto z_ranges = [] () -> auto {
@@ -112,14 +116,23 @@ void N_Body::render ()
 		std::array<Range, dist_list_meters.size()> dist_list;
 
 		for (uint32_t i = 0; i < dist_list_meters.size(); i++) {
-			dist_list[i].z_near = to_graphics_dist(meters_to_dist_unit(dist_list_meters[i].z_near));
-			dist_list[i].z_far = to_graphics_dist(meters_to_dist_unit(dist_list_meters[i].z_far));
+			dist_list[i].z_near = meters_to_dist_unit(dist_list_meters[i].z_near);
+			dist_list[i].z_far = meters_to_dist_unit(dist_list_meters[i].z_far);
+			dist_list[i].z_middle = (dist_list[i].z_near + dist_list[i].z_far) / fp(2);
+			dist_list[i].z_half_range = (dist_list[i].z_far - dist_list[i].z_near) / fp(2);
+			dist_list[i].graphics_z_near = to_graphics_dist(dist_list[i].z_near);
+			dist_list[i].graphics_z_far = to_graphics_dist(dist_list[i].z_far);
 		}
 
 		return dist_list;
 	}();
 
 //	dprintln("N_Body::render");
+
+	// Calculate the distance of each body to the camera
+	std::for_each(this->bodies.begin(), this->bodies.end(), [this] (Body& body) {
+		body.distance_to_camera = (body.get_ref_pos() - this->camera_pos).length();
+	});
 
 	this->render_opts.world_camera_pos = to_graphics_dist(this->camera_pos);
 	this->render_opts.world_camera_target = to_graphics_dist(this->camera_target);
@@ -137,8 +150,8 @@ void N_Body::render ()
 		else
 			first = false;
 
-		this->render_opts.z_near = range.z_near;
-		this->render_opts.z_far = range.z_far;
+		this->render_opts.z_near = range.graphics_z_near;
+		this->render_opts.z_far = range.graphics_z_far;
 
 //		dprintln("N_Body::render: rendering range: z_near = ", range.z_near, ", z_far = ", range.z_far);
 
@@ -147,8 +160,10 @@ void N_Body::render ()
 
 		renderer->setup_render_3D(this->render_opts);
 
-		for (Body& body : this->bodies)
-			body.render();
+		for (Body& body : this->bodies) {
+			if (body.is_inside_frustum(range.z_middle, range.z_half_range))
+				body.render();
+		}
 
 		renderer->render();
 	}

@@ -94,6 +94,8 @@ protected:
 	std::variant<Star, Planet> type_specific;
 	std::variant<RenderColor, RenderTexture> render_specific;
 
+	fp_t distance_to_camera; // used by N_Body::render()
+
 public:
 	Body (const BodyDescriptor& desc);
 
@@ -132,6 +134,35 @@ public:
 
 	void setup_rotation (const fp_t angular_velocity, const Vector& axis);
 	void update_radius ();
+
+	/*
+		is_inside_frustum is used to determine if the body is inside the frustum.
+		Bodies that are outside the frustum are not rendered.
+		z_middle is the z coordinate of the middle of the frustum.
+		z_half_range is the half of the z range of the frustum.
+	*/
+
+	bool is_inside_frustum (const fp_t z_middle, const fp_t z_half_range) const noexcept
+	{
+		bool r = false;
+		const fp_t distance_between_centers = std::abs(this->distance_to_camera - z_middle);
+
+		switch (this->shape_type) {
+			case Shape::Type::Sphere3D:
+				r = (distance_between_centers <= (this->radius + z_half_range));
+			break;
+
+			case Shape::Type::Cube3D:
+				r = (distance_between_centers <= (this->radius * fp(1.5) + z_half_range));
+			break;
+		}
+
+		return r;
+	}
+
+	// --------------------------
+
+	friend class N_Body;
 };
 
 // ---------------------------------------------------

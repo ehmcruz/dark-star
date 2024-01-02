@@ -188,7 +188,7 @@ static void load ()
 
 	create_cubes(10);
 
-	std::cout << std::setprecision(30);
+	std::cout << std::setprecision(2);
 }
 
 // -------------------------------------------
@@ -239,7 +239,7 @@ static void setup_render ()
 static void main_loop ()
 {
 	const Uint8 *keys;
-	fp_t real_dt, required_dt, sleep_dt, busy_wait_dt, fps;
+	fp_t real_dt, required_dt, sleep_dt, busy_wait_dt, fps, physics_dt, render_dt;
 
 	keys = SDL_GetKeyboardState(nullptr);
 
@@ -248,13 +248,15 @@ static void main_loop ()
 	sleep_dt = 0;
 	busy_wait_dt = 0;
 	fps = 0;
+	physics_dt = 0;
+	render_dt = 0;
 
 	while (alive) {
 		const ClockTime tbegin = Clock::now();
 		ClockTime tend;
 		ClockDuration elapsed;
 
-	#if 0
+	#if 1
 		dprintln("----------------------------------------------");
 		dprintln("start new frame render target_dt=", Config::target_dt,
 			" required_dt=", required_dt,
@@ -262,15 +264,26 @@ static void main_loop ()
 			" sleep_dt=", sleep_dt,
 			" busy_wait_dt=", busy_wait_dt,
 			" target_dt=", Config::target_dt,
+			" physics_dt=", physics_dt,
+			" render_dt=", render_dt,
 			" fps=", fps
 			);
 	#endif
 
 		DarkStar::event_manager->process_events();
 		const fp_t virtual_dt = setup_step(real_dt);
+
+		const ClockTime tbefore_physics = Clock::now();
 		n_body->simulate_step(virtual_dt, n_steps);
+		const ClockTime tafter_physics = Clock::now();
+		physics_dt = ClockDuration_to_fp(tafter_physics - tbefore_physics);
+		
 		setup_render();
+
+		const ClockTime tbefore_render = Clock::now();
 		n_body->render();
+		const ClockTime tafter_render = Clock::now();
+		render_dt = ClockDuration_to_fp(tafter_render - tbefore_render);
 
 		const ClockTime trequired = Clock::now();
 		elapsed = trequired - tbegin;
