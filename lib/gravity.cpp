@@ -58,10 +58,11 @@ void SimpleParallelGravitySolver::calc_gravity ()
 	this->tpool.detach_blocks<std::size_t>(0, n,
 		[this, n, nt] (const std::size_t i_ini, const std::size_t i_end) -> void {
 			const auto tid = *BS::this_thread::get_index();
+			const auto row = n * tid;
 			//dprintln("Thread ", tid, " calculating gravity for bodies ", i_ini, " to ", i_end - 1);
 			for (std::size_t i = i_ini; i < i_end; i++) {
 				const Body& b1 = this->bodies[i];
-				auto& force_i = this->forces[n*tid + i];
+				auto& force_i = this->forces[row + i];
 
 				for (std::size_t j = i + 1; j < n; j++) {
 					const Body& b2 = this->bodies[j];
@@ -70,7 +71,7 @@ void SimpleParallelGravitySolver::calc_gravity ()
 					const fp_t force = calc_gravitational_force(b1.get_mass(), b2.get_mass(), dist);
 					const Vector grav_force = Mylib::Math::with_length(b2.get_ref_pos() - b1.get_ref_pos(), force);
 
-					auto& force_j = this->forces[n*tid + j];
+					auto& force_j = this->forces[row + j];
 
 					force_i += grav_force;
 					force_j -= grav_force;
