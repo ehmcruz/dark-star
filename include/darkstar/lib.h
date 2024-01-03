@@ -16,6 +16,14 @@ namespace DarkStar
 
 // ---------------------------------------------------
 
+#ifdef DARKSTAR_SANITY_CHECK
+	#define darkstar_sanity_check(cond, ...) mylib_assert_exception_msg(cond, __VA_ARGS__)
+#else
+	#define darkstar_sanity_check(cond, ...)
+#endif
+
+// ---------------------------------------------------
+
 constexpr fp_t meters_to_dist_unit (const fp_t meters) noexcept
 {
 	//return std::ldexp(meters, Config::meters_to_dist_unit_exp);

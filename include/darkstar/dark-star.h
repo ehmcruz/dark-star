@@ -5,6 +5,8 @@
 
 #include <my-game-lib/my-game-lib.h>
 
+#include <my-lib/memory.h>
+
 #include <darkstar/types.h>
 
 // ---------------------------------------------------
@@ -13,6 +15,8 @@ namespace DarkStar
 {
 
 // ---------------------------------------------------
+
+inline Mylib::Memory::Manager *memory_manager = nullptr;
 
 inline MyGlib::Lib *game_lib = nullptr;
 inline MyGlib::Graphics::Manager *renderer = nullptr;

@@ -10,6 +10,7 @@
 
 #include <my-lib/macros.h>
 #include <my-lib/std.h>
+#include <my-lib/any.h>
 
 #include <my-game-lib/graphics.h>
 
@@ -49,6 +50,9 @@ struct BodyDescriptor;
 
 class Body
 {
+public:
+	Mylib::Any<sizeof(void*)> any;
+
 public:
 	enum class Type {
 		Star,
