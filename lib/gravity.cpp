@@ -433,6 +433,7 @@ void BarnesHutGravitySolver::downgrade_to_external (Node *node)
 	node->data = ExternalNode {
 		.body = child_body
 		};
+	child_body->any = node;
 	
 	// TODO: check if this is really necessary
 	calc_center_of_mass_bottom_up(node);
