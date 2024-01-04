@@ -28,16 +28,14 @@ N_Body::N_Body (const std::size_t max_elements_)
 	this->render_opts.z_near = 0.1f;
 	this->render_opts.z_far = 100.0f;
 	this->render_opts.ambient_light_color = {1, 1, 1, 0.2};
-
-	//this->gravity_solver = new SimpleGravitySolver(this->bodies);
-	this->gravity_solver = new SimpleParallelGravitySolver(this->bodies);
 }
 
 // ---------------------------------------------------
 
 N_Body::~N_Body ()
 {
-	delete this->gravity_solver;
+	if (this->gravity_solver != nullptr)
+		delete this->gravity_solver;
 }
 
 // ---------------------------------------------------

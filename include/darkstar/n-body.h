@@ -25,12 +25,13 @@ class N_Body
 {
 protected:
 	const std::size_t max_elements;
-	std::vector<Body> bodies;
 	std::vector<Body*> stars;
-	GravitySolver *gravity_solver;
 	MyGlib::Graphics::RenderArgs3D render_opts;
 	Point camera_pos;
 	Point camera_target;
+
+	OO_ENCAPSULATE_PTR_INIT(GravitySolver*, gravity_solver, nullptr)
+	OO_ENCAPSULATE_OBJ(std::vector<Body>, bodies)
 
 public:
 	N_Body (const std::size_t max_elements_);

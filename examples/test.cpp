@@ -19,6 +19,7 @@
 #include <darkstar/body.h>
 #include <darkstar/n-body.h>
 #include <darkstar/dark-star.h>
+#include <darkstar/gravity.h>
 #include <darkstar/user-lib.h>
 
 #include <my-lib/math.h>
@@ -186,7 +187,11 @@ static void load ()
 	sun->get_ref_pos().z -= meters_to_dist_unit(DarkStar::UserLib::distance_from_earth_to_sun_m);
 	sun->set_color(Color::green());
 
-	create_cubes(5000);
+	create_cubes(5);
+
+	//this->gravity_solver = new SimpleGravitySolver(this->bodies);
+	//this->gravity_solver = new SimpleParallelGravitySolver(this->bodies);
+	n_body->set_gravity_solver(new DarkStar::BarnesHutGravitySolver(n_body->get_ref_bodies(), 2.0));
 
 	std::cout << std::setprecision(2);
 }
