@@ -237,37 +237,11 @@ void BarnesHutGravitySolver::insert_body (Body *body, Node *new_node, Node *node
 {
 	switch (node->type) {
 		case Node::Type::External: {
-			// backup current Body
-			ExternalNode& external_node = std::get<ExternalNode>(node->data);
-			Body *current_body = external_node.body;
-
-			// transform current node into an internal node
-			node->type = Node::Type::Internal;
-			node->data = InternalNode {
-				.nodes = std::array<Node*, 8>({ nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr })
-				};
-
-			InternalNode& internal_node = std::get<InternalNode>(node->data);
-			auto& nodes = internal_node.nodes;
-
-			// insert the current body
-			Position pos = map_position(current_body, node);
-			nodes[pos] = allocate_node(); // allocate since we need two nodes in this case
-			setup_external_node(current_body, nodes[pos], node, pos);
-			calc_center_of_mass_bottom_up(nodes[pos]);
-
-			// insert the new body
-			pos = map_position(body, node);
-
-			if (nodes[pos] == nullptr) {
-				nodes[pos] = new_node;
-				setup_external_node(body, nodes[pos], node, pos);
-				calc_center_of_mass_bottom_up(nodes[pos]);
-			}
-			else
-				insert_body(body, new_node, nodes[pos]);
+			Node *external_child_node = upgrade_to_internal(node);
+			calc_center_of_mass(external_child_node);
 		}
-		break;
+
+		[[fallthrough]];
 
 		case Node::Type::Internal: {
 			InternalNode& internal_node = std::get<InternalNode>(node->data);
@@ -286,68 +260,207 @@ void BarnesHutGravitySolver::insert_body (Body *body, Node *new_node, Node *node
 	}
 }
 
+BarnesHutGravitySolver::Node* BarnesHutGravitySolver::upgrade_to_internal (Node *node)
+{
+	darkstar_sanity_check(node->type == Node::Type::External)
+
+	// backup Body
+	Body *body = std::get<ExternalNode>(node->data).body;
+
+	// transform current node into an internal node
+	node->type = Node::Type::Internal;
+	node->data = InternalNode {
+		.nodes = std::array<Node*, 8>({ nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr })
+		};
+
+	InternalNode& internal_node = std::get<InternalNode>(node->data);
+	auto& nodes = internal_node.nodes;
+
+	// insert the current body
+	const Position pos = map_position(body, node);
+	nodes[pos] = allocate_node(); // allocate since we need two nodes in this case
+	setup_external_node(body, nodes[pos], node, pos);
+
+	return nodes[pos];
+}
+
 [[nodiscard]] BarnesHutGravitySolver::Node* BarnesHutGravitySolver::remove_body (Body *body)
 {
 	Node *node = body->any.get_value<Node*>();
 
-	darkstar_sanity_check(node->type == Node::Type::External, "node is not an external node")
+	darkstar_sanity_check(node != nullptr)
+	darkstar_sanity_check_msg(node->type == Node::Type::External, "node is not an external node")
 
 	Node *parent = node->parent;
 
-	darkstar_sanity_check(parent != nullptr, "cannot remove body from root node")
-	darkstar_sanity_check(parent->type == Node::Type::Internal, "parent node is not an internal node")
+	darkstar_sanity_check_msg(parent != nullptr, "cannot remove body from root node")
+	darkstar_sanity_check_msg(parent->type == Node::Type::Internal, "parent node is not an internal node")
+	darkstar_sanity_check_msg(parent->n_bodies >= 2, "parent must have at least 2 bodies, since it is an Internal node")
 
-	InternalNode& parent_internal_node = std::get<InternalNode>(parent->data);
-	auto& parent_nodes = parent_internal_node.nodes;
-
-	darkstar_sanity_check(parent->n_bodies > 1, "parent must have more than one body, since it is an Internal node")
-
-	parent->n_bodies--;
-
-	if (parent->n_bodies == 1) {
-		// we have to transform the parent node into an external node
-		if constexpr (Config::sanity_checks) {
-			uint32_t n_children = 0;
-			uint32_t n_children_external = 0;
-			
-			for (Node *child : parent_nodes) {
-				if (child == nullptr)
-					continue;
-
-				n_children++;
-				
-				if (child->type == Node::Type::External) {
-					n_children_external++;
-
-					ExternalNode& child_external = std::get<ExternalNode>(child->data);
-					mylib_assert_exception_msg(child_external.body == body, "external child node is not the body we are removing")
-				}
-			}
-
-			mylib_assert_exception_msg(n_children == 1, "parent node has more than one child")
-			mylib_assert_exception_msg(n_children_external == 1, "parent node has more than one external child")
-		}
-
-		// node was already child of parent,
-		// so we don't have to remove it because
-		// it was already removed in the previus loop
-
-		// Now, we have to transform the parent node into an external node
-
-		parent->type = Node::Type::External;
-		parent->data = ExternalNode {
-			.body = body
-			};
-		body->any = parent;
+	if (parent->n_bodies == 2) {
+		/*
+			If the parent node has only two bodies, after removal 
+			it will have only one body.
+			Therefore, we have to downgrade the parent node to an
+			external node.
+		*/
+		remove_and_downgrade_to_external(parent, node);
 	}
-	else
+	else {
+		InternalNode& parent_internal_node = std::get<InternalNode>(parent->data);
+		auto& parent_nodes = parent_internal_node.nodes;
+
+		parent->n_bodies--;
 		parent_nodes[node->parent_pos] = nullptr;
+
+		calc_center_of_mass_bottom_up(parent);
+	}
 
 	body->any = nullptr;
 
-	calc_center_of_mass_bottom_up(parent);
-
 	return node;
+}
+
+void BarnesHutGravitySolver::remove_and_downgrade_to_external (Node *node, Node *node_to_delete)
+{
+	// The node_to_delete is the node that will be removed from the tree.
+	// It is responsibility of the caller to de-allocate node_to_delete.
+
+	// The survivor_child_body is the one that will be kept in the tree.
+	// It is my responsibility to de-allocate the survivor_child_node.
+
+	darkstar_sanity_check(node->type == Node::Type::Internal)
+	darkstar_sanity_check(node_to_delete->type == Node::Type::External)
+	darkstar_sanity_check(node_to_delete->parent == node)
+	darkstar_sanity_check(node->n_bodies == 2)
+
+	InternalNode& internal_node = std::get<InternalNode>(node->data);
+	auto& nodes = internal_node.nodes;
+
+	Body *body_to_delete = std::get<ExternalNode>(node_to_delete->data).body;
+
+	// First, we have to find the child node that is not nullptr
+	// and is not body.
+
+	Node *survivor_child_node = nullptr;
+	Body *survivor_child_body = nullptr;
+
+	for (Node *child : nodes) {
+		if (child == nullptr)
+			continue;
+
+		if (child->type == Node::Type::External) {
+			ExternalNode& child_external = std::get<ExternalNode>(child->data);
+
+			if (child_external.body != body_to_delete) {
+				// we found the child node that is not nullptr
+				// and is not body
+				// therefore, we can remove body from the tree
+				darkstar_sanity_check(survivor_child_node == nullptr)
+				survivor_child_node = child;
+				survivor_child_body = child_external.body;
+				break;
+			}
+		}
+	}
+
+	darkstar_sanity_check(survivor_child_node != nullptr)
+	darkstar_sanity_check(survivor_child_body != nullptr)
+
+	if constexpr (Config::sanity_checks) {
+		uint32_t n_children = 0;
+		uint32_t n_children_external = 0;
+		
+		for (Node *child : nodes) {
+			if (child == nullptr)
+				continue;
+
+			n_children++;
+			
+			if (child->type == Node::Type::External) {
+				n_children_external++;
+
+				ExternalNode& child_external = std::get<ExternalNode>(child->data);
+				mylib_assert_exception_msg(child_external.body == body_to_delete || child_external.body == survivor_child_body, "n_children = ", n_children, '\n', "n_children_external = ", n_children_external)
+			}
+		}
+
+		mylib_assert_exception_msg(n_children == 2, "n_children = ", n_children, '\n', "n_children_external = ", n_children_external)
+		mylib_assert_exception_msg(n_children_external == 2, "n_children_external = ", n_children_external)
+	}
+
+	// node was already child of parent,
+	// so we don't have to remove it because
+	// it was already removed in the previus loop
+
+	// Now, we have to transform the parent node into an external node
+
+	node->type = Node::Type::External;
+	node->data = ExternalNode {
+		.body = survivor_child_body
+		};
+	survivor_child_body->any = node;
+
+	// We can de-allocate the survivor_child_node because its
+	// body is now in the current node pointer.
+	deallocate_node(survivor_child_node);
+
+	calc_center_of_mass_bottom_up(node);
+
+	if (node->parent) {
+		Node *parent = node->parent;
+
+		darkstar_sanity_check_msg(parent->type == Node::Type::Internal, "parent node is not an internal node")
+		darkstar_sanity_check_msg(parent->n_bodies >= 1, "parent must have at least 1 body")
+
+		if (parent->n_bodies == 1)
+			downgrade_to_external(parent);
+	}
+}
+
+void BarnesHutGravitySolver::downgrade_to_external (Node *node)
+{
+	darkstar_sanity_check(node->type == Node::Type::Internal)
+	darkstar_sanity_check(node->n_bodies == 1)
+
+	Node *child_node = get_only_child(node);
+
+	darkstar_sanity_check(child_node->type == Node::Type::External)
+
+	Body *child_body = std::get<ExternalNode>(child_node->data).body;
+
+	node->type = Node::Type::External;
+	node->data = ExternalNode {
+		.body = child_body
+		};
+	
+	// TODO: check if this is really necessary
+	calc_center_of_mass_bottom_up(node);
+
+	deallocate_node(child_node);
+}
+
+BarnesHutGravitySolver::Position BarnesHutGravitySolver::get_only_child_pos (const Node *node)
+{
+	darkstar_sanity_check(node->type == Node::Type::Internal)
+
+	const InternalNode& internal_node = std::get<InternalNode>(node->data);
+	const auto& nodes = internal_node.nodes;
+	Position only_child_pos;
+	bool found = false;
+
+	for (uint32_t pos = 0; const Node *child : nodes) {
+		if (child != nullptr) {
+			darkstar_sanity_check(found == false)
+			found = true;
+			only_child_pos = static_cast<Position>(pos);
+		}
+		pos++;
+	}
+
+	mylib_assert_exception_msg(found == true, "internal node has no children")
+
+	return only_child_pos;
 }
 
 void BarnesHutGravitySolver::check_body_movement ()
@@ -461,7 +574,7 @@ void BarnesHutGravitySolver::setup_external_node (Body *body, Node *node, Node *
 			= sum of children [child_center_of_mass * child_mass / new_mass]
 */
 
-void BarnesHutGravitySolver::calc_center_of_mass_bottom_up (Node *node)
+void BarnesHutGravitySolver::calc_center_of_mass (Node *node)
 {
 	switch (node->type) {
 		case Node::Type::External: {
@@ -496,6 +609,11 @@ void BarnesHutGravitySolver::calc_center_of_mass_bottom_up (Node *node)
 		}
 		break;
 	}
+}
+
+void BarnesHutGravitySolver::calc_center_of_mass_bottom_up (Node *node)
+{
+	calc_center_of_mass(node);
 
 	if (node->parent != nullptr) [[likely]]
 		calc_center_of_mass_bottom_up(node->parent);

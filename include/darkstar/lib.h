@@ -17,9 +17,11 @@ namespace DarkStar
 // ---------------------------------------------------
 
 #ifdef DARKSTAR_SANITY_CHECK
-	#define darkstar_sanity_check(cond, ...) mylib_assert_exception_msg(cond, __VA_ARGS__)
+	#define darkstar_sanity_check_msg(cond, ...) mylib_assert_exception_msg(cond, __VA_ARGS__)
+	#define darkstar_sanity_check(cond) mylib_assert_exception(cond)
 #else
-	#define darkstar_sanity_check(cond, ...)
+	#define darkstar_sanity_check_msg(cond, ...)
+	#define darkstar_sanity_check(cond)
 #endif
 
 // ---------------------------------------------------
