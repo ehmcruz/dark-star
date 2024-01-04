@@ -483,6 +483,9 @@ void BarnesHutGravitySolver::calc_center_of_mass_bottom_up (Node *node)
 			// first, we need our total mass
 			
 			for (const Node *child : internal_node.nodes) {
+				if (child == nullptr)
+					continue;
+				
 				node->n_bodies += child->n_bodies;
 				node->mass += child->mass;
 				node->center_of_mass += child->center_of_mass * child->mass;
