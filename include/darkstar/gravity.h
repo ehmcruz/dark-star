@@ -127,26 +127,35 @@ private:
 	Node *root;
 
 public:
-	BarnesHutGravitySolver (std::vector<Body>& bodies_);
+	// Size_scale is how much we will multiply the size of the given universe.
+	// Bodies that eventually fall outisde the universe will be removed
+	// from gravity calculation.
+	BarnesHutGravitySolver (std::vector<Body>& bodies_, const fp_t size_scale = 2);
 	~BarnesHutGravitySolver ();
 
 	void calc_gravity () override final;
 
 private:
+	void calc_gravity (Body *body, Node *other_node) const noexcept;
+
 	// remove_body doesn't de-allocate the node, neither the body.
 	// Just removes from the tree.
 	// The caller is responsible for any memory de-allocation.
 	// Returns a pointer to the node that was removed.
 	[[nodiscard]] Node* remove_body (Body *body);
 	
-	void destroy_subtree (Node *node);
 	void check_body_movement ();
 
-	static void calc_gravity (Body *body, Node *other_node) noexcept;
+	void insert_body (Body *body, Node *new_node)
+	{
+		insert_body(body, new_node, this->root);
+	}
+
 	static void insert_body (Body *body, Node *new_node, Node *node);
 	static void calc_center_of_mass_bottom_up (Node *node);
 	static Position map_position (const Vector& pos, const Node *node) noexcept;
 	static void setup_external_node (Body *body, Node *node, Node *parent, const Position parent_pos);
+	static void destroy_subtree (Node *node);
 
 	static inline Position map_position (const Body *body, const Node *node) noexcept
 	{

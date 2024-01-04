@@ -95,7 +95,7 @@ void SimpleParallelGravitySolver::calc_gravity ()
 
 // ---------------------------------------------------
 
-BarnesHutGravitySolver::BarnesHutGravitySolver (std::vector<Body>& bodies_)
+BarnesHutGravitySolver::BarnesHutGravitySolver (std::vector<Body>& bodies_, const fp_t size_scale)
 	: GravitySolver(bodies_)
 {
 	mylib_assert_exception_msg(bodies_.size() > 0, "bodies vector is empty")
@@ -122,28 +122,28 @@ BarnesHutGravitySolver::BarnesHutGravitySolver (std::vector<Body>& bodies_)
 			bottom_south_west.z = pos.z;
 	}
 
-	// create a universe size with twice the size of the universe
-	// calculated above
-	top_north_east *= fp(2);
-	bottom_south_west *= fp(2);
-
 	// We need now to transform the universe size into a cube
 	// with the same size in all dimensions.
 
 	const Vector size = top_north_east - bottom_south_west;
-	const fp_t max_size = std::max({ size.x, size.y, size.z });
+	fp_t max_size = std::max({ size.x, size.y, size.z });
 
-	if (size.x < max_size) {
+	// create a universe size bgger than the size of the universe
+	// calculated above
+	mylib_assert_exception_msg(size_scale >= fp(2), "size_scale must be greater or equal to 2")
+	max_size *= size_scale;
+
+	{
 		const fp_t diff = (max_size - size.x) / fp(2);
 		top_north_east.x += diff;
 		bottom_south_west.x -= diff;
 	}
-	if (size.y < max_size) {
+	{
 		const fp_t diff = (max_size - size.y) / fp(2);
 		top_north_east.y += diff;
 		bottom_south_west.y -= diff;
 	}
-	if (size.z < max_size) {
+	{
 		const fp_t diff = (max_size - size.z) / fp(2);
 		top_north_east.z += diff;
 		bottom_south_west.z -= diff;
@@ -165,12 +165,12 @@ BarnesHutGravitySolver::BarnesHutGravitySolver (std::vector<Body>& bodies_)
 
 	// insert the other bodies
 	for (std::size_t i = 1; i < this->bodies.size(); i++)
-		insert_body(&this->bodies[i], allocate_node(), this->root);
+		this->insert_body(&this->bodies[i], allocate_node());
 }
 
 BarnesHutGravitySolver::~BarnesHutGravitySolver ()
 {
-	this->destroy_subtree(this->root);
+	destroy_subtree(this->root);
 }
 
 void BarnesHutGravitySolver::calc_gravity ()
@@ -186,33 +186,36 @@ void BarnesHutGravitySolver::calc_gravity ()
 		Node *node = body.any.get_value<Node*>();
 
 		if (node != nullptr)
-			calc_gravity(&body, this->root);
+			this->calc_gravity(&body, this->root);
 	}
 }
 
-void BarnesHutGravitySolver::calc_gravity (Body *body, Node *other_node) noexcept
+void BarnesHutGravitySolver::calc_gravity (Body *body, Node *other_node) const noexcept
 {
-	const Point& my_pos = body->get_ref_pos();
-	const fp_t my_mass = body->get_mass();
-	Point other_pos;
-	fp_t other_mass;
+	Node *node = body->any.get_value<Node*>();
 
-	switch (other_node->type) {
-		case Node::Type::External: {
-			const fp_t distance = (my_pos - other_node->center_of_mass).length();
+	if (node == other_node) [[unlikely]]
+		return;
+
+	const fp_t dist = Mylib::Math::distance(body->get_ref_pos(), other_node->center_of_mass);
+
+	if (other_node->type == Node::Type::Internal) [[likely]] {
+		const fp_t ratio = other_node->size / dist;
+
+		if (ratio > this->theta) [[unlikely]] {
+			InternalNode& internal_node = std::get<InternalNode>(other_node->data);
+			for (Node *child : internal_node.nodes) {
+				if (child == nullptr)
+					continue;
+
+				this->calc_gravity(body, child);
+			}
+			return;
 		}
-		break;
-
-		case Node::Type::Internal: {
-			other_pos = other_node->center_of_mass;
-			other_mass = other_node->mass;
-		};
-		break;
 	}
 
-	const fp_t dist = Mylib::Math::distance(my_pos, other_pos);
-	const fp_t force = calc_gravitational_force(my_mass, other_mass, dist);
-	const Vector grav_force = Mylib::Math::with_length(other_pos - my_pos, force);
+	const fp_t force = calc_gravitational_force(body->get_mass(), other_node->mass, dist);
+	const Vector grav_force = Mylib::Math::with_length(other_node->center_of_mass - body->get_ref_pos(), force);
 
 	body->get_ref_rforce() += grav_force;
 }
@@ -255,6 +258,7 @@ void BarnesHutGravitySolver::insert_body (Body *body, Node *new_node, Node *node
 
 			// insert the new body
 			pos = map_position(body, node);
+
 			if (nodes[pos] == nullptr) {
 				nodes[pos] = new_node;
 				setup_external_node(body, nodes[pos], node, pos);
@@ -360,7 +364,7 @@ void BarnesHutGravitySolver::check_body_movement ()
 			// create a big universe.
 
 			if (is_body_inside_node(&body, this->root))
-				insert_body(&body, node, this->root);
+				this->insert_body(&body, node);
 			else {
 				// Body is outside the universe.
 				// We just remove it from the tree and let it float
@@ -541,7 +545,7 @@ void BarnesHutGravitySolver::destroy_subtree (Node *node)
 
 		for (Node *n : internal_node.nodes) {
 			if (n != nullptr)
-				this->destroy_subtree(n);
+				destroy_subtree(n);
 		}
 	}
 
