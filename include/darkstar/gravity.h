@@ -112,8 +112,7 @@ public:
 
 		Type type;
 		Point center_pos;
-		Vector size;
-		Vector half_size;
+		fp_t size;
 		std::variant<ExternalNode, InternalNode> data;
 		Node *parent;
 		Position parent_pos;
@@ -156,14 +155,12 @@ private:
 
 	static inline bool is_body_inside_node (const Body *body, const Node *node) noexcept
 	{
-		const Vector& pos = body->get_ref_pos();
-		const Vector& half_size = node->half_size;
-		const Vector& center_pos = node->center_pos;
-		const Vector distance = Mylib::Math::abs(pos - center_pos);
+		const Vector distance = Mylib::Math::abs(body->get_ref_pos() - node->center_pos);
+		const fp_t half_size = node->size / fp(2);
 
-		return (distance.x <= half_size.x) &&
-			   (distance.y <= half_size.y) &&
-			   (distance.z <= half_size.z);
+		return (distance.x <= half_size) &&
+			   (distance.y <= half_size) &&
+			   (distance.z <= half_size);
 	}
 
 	[[nodiscard]] static inline Node* allocate_node ()

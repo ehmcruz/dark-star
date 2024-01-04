@@ -155,8 +155,7 @@ BarnesHutGravitySolver::BarnesHutGravitySolver (std::vector<Body>& bodies_)
 
 	node->type = Node::Type::External;
 	node->center_pos = (top_north_east + bottom_south_west) / fp(2);
-	node->size = top_north_east - bottom_south_west;
-	node->half_size = node->size / fp(2);
+	node->size = max_size;
 	node->data = ExternalNode {
 		.body = &this->bodies[0]
 		};
@@ -374,7 +373,7 @@ void BarnesHutGravitySolver::check_body_movement ()
 
 void BarnesHutGravitySolver::setup_external_node (Body *body, Node *node, Node *parent, const Position parent_pos)
 {
-	const Vector quarter_size = parent->size / fp(4);
+	const fp_t quarter_size = parent->size / fp(4);
 
 	node->type = Node::Type::External;
 
@@ -384,27 +383,27 @@ void BarnesHutGravitySolver::setup_external_node (Body *body, Node *node, Node *
 		break;
 
 		case TopNorthWest:
-			node->center_pos = parent->center_pos + Vector(-quarter_size.x, quarter_size.y, quarter_size.z);
+			node->center_pos = parent->center_pos + Vector(-quarter_size, quarter_size, quarter_size);
 		break;
 
 		case TopSouthEast:
-			node->center_pos = parent->center_pos + Vector(quarter_size.x, quarter_size.y, -quarter_size.z);
+			node->center_pos = parent->center_pos + Vector(quarter_size, quarter_size, -quarter_size);
 		break;
 
 		case TopSouthWest:
-			node->center_pos = parent->center_pos + Vector(-quarter_size.x, quarter_size.y, -quarter_size.z);
+			node->center_pos = parent->center_pos + Vector(-quarter_size, quarter_size, -quarter_size);
 		break;
 
 		case BottomNorthEast:
-			node->center_pos = parent->center_pos + Vector(quarter_size.x, -quarter_size.y, quarter_size.z);
+			node->center_pos = parent->center_pos + Vector(quarter_size, -quarter_size, quarter_size);
 		break;
 
 		case BottomNorthWest:
-			node->center_pos = parent->center_pos + Vector(-quarter_size.x, -quarter_size.y, quarter_size.z);
+			node->center_pos = parent->center_pos + Vector(-quarter_size, -quarter_size, quarter_size);
 		break;
 
 		case BottomSouthEast:
-			node->center_pos = parent->center_pos + Vector(quarter_size.x, -quarter_size.y, -quarter_size.z);
+			node->center_pos = parent->center_pos + Vector(quarter_size, -quarter_size, -quarter_size);
 		break;
 
 		case BottomSouthWest:
@@ -413,12 +412,9 @@ void BarnesHutGravitySolver::setup_external_node (Body *body, Node *node, Node *
 	}
 
 	node->size = parent->size / fp(2);
-	node->half_size = quarter_size;
-
 	node->data = ExternalNode {
 		.body = body
 		};
-
 	node->parent = parent;
 	node->parent_pos = parent_pos;
 	body->any = node;
@@ -504,7 +500,6 @@ void BarnesHutGravitySolver::calc_center_of_mass_bottom_up (Node *node)
 BarnesHutGravitySolver::Position BarnesHutGravitySolver::map_position (const Vector& pos, const Node *node) noexcept
 {
 	const Vector& center_pos = node->center_pos;
-	const Vector& size = node->size;
 	Position r;
 
 	if (pos.x > center_pos.x) {
