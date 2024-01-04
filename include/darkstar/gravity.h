@@ -14,6 +14,7 @@
 #include <darkstar/config.h>
 #include <darkstar/constants.h>
 #include <darkstar/body.h>
+#include <darkstar/dark-star.h>
 
 #include <BS_thread_pool.hpp>
 
@@ -105,41 +106,26 @@ private:
 public:
 	struct Node {
 		enum class Type {
-			Empty,
 			External,
 			Internal
 		};
 
 		Type type;
-		Vector center_pos;
+		Point center_pos;
 		Vector size;
 		Vector half_size;
 		std::variant<ExternalNode, InternalNode> data;
-
-		std::size_t n_bodies;
-		fp_t mass;
-		Vector center_of_mass;
-
 		Node *parent;
 		Position parent_pos;
 
-		Node () noexcept
-		{
-			this->reset();
-		}
-
-		void reset () noexcept
-		{
-			this->type = Type::Empty;
-			this->n_bodies = 0;
-			this->mass = 0;
-			this->center_of_mass = Vector::zero();
-			this->parent = nullptr;
-		}
+		// The three following variables are set by calc_center_of_mass_bottom_up
+		std::size_t n_bodies;
+		fp_t mass;
+		Vector center_of_mass;
 	};
 
 private:
-	Node *root = nullptr;
+	Node *root;
 
 public:
 	BarnesHutGravitySolver (std::vector<Body>& bodies_);
@@ -148,22 +134,27 @@ public:
 	void calc_gravity () override final;
 
 private:
-	void insert_body (Body *body, Node *node);
-	void remove_body (Body *body);
-	InternalNode create_internal_node (Node *node);
+	// remove_body doesn't de-allocate the node, neither the body.
+	// Just removes from the tree.
+	// The caller is responsible for any memory de-allocation.
+	// Returns a pointer to the node that was removed.
+	[[nodiscard]] Node* remove_body (Body *body);
+	
 	void destroy_subtree (Node *node);
-	Position map_position (const Vector& pos, const Node *node) const noexcept;
-
-	Position map_position (const Body *body, const Node *node) const noexcept
-	{
-		return this->map_position(body->get_ref_pos(), node);
-	}
-
-	void calc_gravity (Body *body, Node *node) const noexcept;
-	void calc_center_of_mass_bottom_up (Node *node);
 	void check_body_movement ();
 
-	bool is_body_inside_node (const Body *body, const Node *node) const noexcept
+	static void calc_gravity (Body *body, Node *other_node) noexcept;
+	static void insert_body (Body *body, Node *new_node, Node *node);
+	static void calc_center_of_mass_bottom_up (Node *node);
+	static Position map_position (const Vector& pos, const Node *node) noexcept;
+	static void setup_external_node (Body *body, Node *node, Node *parent, const Position parent_pos);
+
+	static inline Position map_position (const Body *body, const Node *node) noexcept
+	{
+		return map_position(body->get_ref_pos(), node);
+	}
+
+	static inline bool is_body_inside_node (const Body *body, const Node *node) noexcept
 	{
 		const Vector& pos = body->get_ref_pos();
 		const Vector& half_size = node->half_size;
@@ -173,6 +164,16 @@ private:
 		return (distance.x <= half_size.x) &&
 			   (distance.y <= half_size.y) &&
 			   (distance.z <= half_size.z);
+	}
+
+	[[nodiscard]] static inline Node* allocate_node ()
+	{
+		return new (memory_manager->allocate_type<Node>(1)) Node;
+	}
+
+	static inline void deallocate_node (Node *node)
+	{
+		memory_manager->deallocate_type<Node>(node, 1);
 	}
 };
 

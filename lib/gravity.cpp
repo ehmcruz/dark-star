@@ -1,3 +1,5 @@
+#include <algorithm>
+
 #include <cmath>
 
 #include <darkstar/types.h>
@@ -125,15 +127,46 @@ BarnesHutGravitySolver::BarnesHutGravitySolver (std::vector<Body>& bodies_)
 	top_north_east *= fp(2);
 	bottom_south_west *= fp(2);
 
-	// create the root node
-	this->root = new (memory_manager->allocate_type<Node>(1)) Node;
-	this->root->center_pos = (top_north_east + bottom_south_west) / fp(2);
-	this->root->size = top_north_east - bottom_south_west;
-	this->root->half_size = this->root->size / fp(2);
+	// We need now to transform the universe size into a cube
+	// with the same size in all dimensions.
 
-	// insert the bodies
-	for (Body& body : this->bodies)
-		this->insert_body(&body, this->root);
+	const Vector size = top_north_east - bottom_south_west;
+	const fp_t max_size = std::max({ size.x, size.y, size.z });
+
+	if (size.x < max_size) {
+		const fp_t diff = (max_size - size.x) / fp(2);
+		top_north_east.x += diff;
+		bottom_south_west.x -= diff;
+	}
+	if (size.y < max_size) {
+		const fp_t diff = (max_size - size.y) / fp(2);
+		top_north_east.y += diff;
+		bottom_south_west.y -= diff;
+	}
+	if (size.z < max_size) {
+		const fp_t diff = (max_size - size.z) / fp(2);
+		top_north_east.z += diff;
+		bottom_south_west.z -= diff;
+	}
+
+	// create the root node
+	this->root = allocate_node();
+	auto *node = this->root;
+
+	node->type = Node::Type::External;
+	node->center_pos = (top_north_east + bottom_south_west) / fp(2);
+	node->size = top_north_east - bottom_south_west;
+	node->half_size = node->size / fp(2);
+	node->data = ExternalNode {
+		.body = &this->bodies[0]
+		};
+	node->parent = nullptr;
+	this->bodies[0].any = node;
+	calc_center_of_mass_bottom_up(node);
+
+	// insert the other bodies
+	for (std::size_t i = 1; i < this->bodies.size(); i++)
+		insert_body(&this->bodies[i], allocate_node(), this->root);
 }
 
 BarnesHutGravitySolver::~BarnesHutGravitySolver ()
@@ -143,86 +176,142 @@ BarnesHutGravitySolver::~BarnesHutGravitySolver ()
 
 void BarnesHutGravitySolver::calc_gravity ()
 {
+	// Don't process a body where it's node is nullptr.
+	// This happens when a body is outside the universe.
+	// This can happen when the universe is too small.
+	// Therefore, it is important to create a big universe.
 
+	this->check_body_movement();
+
+	for (Body& body : this->bodies) {
+		Node *node = body.any.get_value<Node*>();
+
+		if (node != nullptr)
+			calc_gravity(&body, this->root);
+	}
 }
 
-void BarnesHutGravitySolver::calc_gravity (Body *body, Node *node) const noexcept
+void BarnesHutGravitySolver::calc_gravity (Body *body, Node *other_node) noexcept
 {
+	const Point& my_pos = body->get_ref_pos();
+	const fp_t my_mass = body->get_mass();
+	Point other_pos;
+	fp_t other_mass;
 
-}
-
-void BarnesHutGravitySolver::insert_body (Body *body, Node *node)
-{
-	switch (node->type) {
-		case Node::Type::Empty:
-			node->type = Node::Type::External;
-			node->data = ExternalNode {
-				.body = body
-				};
-			body->any = node;
-			this->calc_center_of_mass_bottom_up(node);
+	switch (other_node->type) {
+		case Node::Type::External: {
+			const fp_t distance = (my_pos - other_node->center_of_mass).length();
+		}
 		break;
 
-		case Node::Type::External: {
-			ExternalNode& external_node = std::get<ExternalNode>(node->data);
+		case Node::Type::Internal: {
+			other_pos = other_node->center_of_mass;
+			other_mass = other_node->mass;
+		};
+		break;
+	}
 
+	const fp_t dist = Mylib::Math::distance(my_pos, other_pos);
+	const fp_t force = calc_gravitational_force(my_mass, other_mass, dist);
+	const Vector grav_force = Mylib::Math::with_length(other_pos - my_pos, force);
+
+	body->get_ref_rforce() += grav_force;
+}
+
+/*
+	insert_body
+
+	The new_node variable is the memory pointer to the node that
+	will be inserted.
+	We need then to pre-allocate this pointer prior to call this function.
+	Why we do that?
+	Because when a body moves from one node to another, we need
+	to delete it from the tree and insert it again.
+	To avoid de-allocating and then re-allocation the memory of the node,
+	we use this technique of passing the pointer to the that will store the element.
+*/
+
+void BarnesHutGravitySolver::insert_body (Body *body, Node *new_node, Node *node)
+{
+	switch (node->type) {
+		case Node::Type::External: {
 			// backup current Body
+			ExternalNode& external_node = std::get<ExternalNode>(node->data);
 			Body *current_body = external_node.body;
 
 			// transform current node into an internal node
-			node->data = this->create_internal_node(node);
 			node->type = Node::Type::Internal;
+			node->data = InternalNode {
+				.nodes = std::array<Node*, 8>({ nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr })
+				};
 
 			InternalNode& internal_node = std::get<InternalNode>(node->data);
+			auto& nodes = internal_node.nodes;
 
 			// insert the current body
-			this->insert_body(current_body, internal_node.nodes[this->map_position(current_body, node)]);
+			Position pos = map_position(current_body, node);
+			nodes[pos] = allocate_node(); // allocate since we need two nodes in this case
+			setup_external_node(current_body, nodes[pos], node, pos);
+			calc_center_of_mass_bottom_up(nodes[pos]);
 
 			// insert the new body
-			this->insert_body(body, internal_node.nodes[this->map_position(body, node)]);
+			pos = map_position(body, node);
+			if (nodes[pos] == nullptr) {
+				nodes[pos] = new_node;
+				setup_external_node(body, nodes[pos], node, pos);
+				calc_center_of_mass_bottom_up(nodes[pos]);
+			}
+			else
+				insert_body(body, new_node, nodes[pos]);
 		}
 		break;
 
 		case Node::Type::Internal: {
 			InternalNode& internal_node = std::get<InternalNode>(node->data);
-			this->insert_body(body, internal_node.nodes[this->map_position(body, node)]);
+			auto& nodes = internal_node.nodes;
+			const Position pos = map_position(body, node);
+
+			if (nodes[pos] == nullptr) {
+				nodes[pos] = new_node;
+				setup_external_node(body, nodes[pos], node, pos);
+				calc_center_of_mass_bottom_up(nodes[pos]);
+			}
+			else
+				insert_body(body, new_node, nodes[pos]);
 		}
 		break;
 	}
 }
 
-void BarnesHutGravitySolver::remove_body (Body *body)
+[[nodiscard]] BarnesHutGravitySolver::Node* BarnesHutGravitySolver::remove_body (Body *body)
 {
-	Node *node = body->any.get_ref<Node*>();
+	Node *node = body->any.get_value<Node*>();
 
 	darkstar_sanity_check(node->type == Node::Type::External, "node is not an external node")
 
 	Node *parent = node->parent;
-	const Position parent_pos = node->parent_pos;
 
-	node->reset();
-
-	if (parent == nullptr) [[unlikely]] // root node
-		return;
-	
+	darkstar_sanity_check(parent != nullptr, "cannot remove body from root node")
 	darkstar_sanity_check(parent->type == Node::Type::Internal, "parent node is not an internal node")
+
+	InternalNode& parent_internal_node = std::get<InternalNode>(parent->data);
+	auto& parent_nodes = parent_internal_node.nodes;
+
+	darkstar_sanity_check(parent->n_bodies > 1, "parent must have more than one body, since it is an Internal node")
 
 	parent->n_bodies--;
 
-	darkstar_sanity_check(parent->n_bodies > 0, "parent has no elements")
-
 	if (parent->n_bodies == 1) {
 		// we have to transform the parent node into an external node
-
-		InternalNode& internal_node = std::get<InternalNode>(parent->data);
-		auto& nodes = internal_node.nodes;
-
 		if constexpr (Config::sanity_checks) {
 			uint32_t n_children = 0;
 			uint32_t n_children_external = 0;
 			
-			for (Node *child : nodes) {
-				n_children += (child->type != Node::Type::Empty);
+			for (Node *child : parent_nodes) {
+				if (child == nullptr)
+					continue;
+
+				n_children++;
 				
 				if (child->type == Node::Type::External) {
 					n_children_external++;
@@ -236,13 +325,6 @@ void BarnesHutGravitySolver::remove_body (Body *body)
 			mylib_assert_exception_msg(n_children_external == 1, "parent node has more than one external child")
 		}
 
-		// We can free the memory of all children nodes
-
-		for (Node *child : nodes) {
-			darkstar_sanity_check(child->type == Node::Type::Empty || child->type == Node::Type::External, "child node is empty")
-			this->destroy_subtree(child);
-		}
-
 		// node was already child of parent,
 		// so we don't have to remove it because
 		// it was already removed in the previus loop
@@ -254,55 +336,92 @@ void BarnesHutGravitySolver::remove_body (Body *body)
 			.body = body
 			};
 		body->any = parent;
-
-		this->calc_center_of_mass_bottom_up(parent);
 	}
-	else // we have to recalculate the center of mass of the parent node
-		this->calc_center_of_mass_bottom_up(parent);
+	else
+		parent_nodes[node->parent_pos] = nullptr;
+
+	body->any = nullptr;
+
+	calc_center_of_mass_bottom_up(parent);
+
+	return node;
 }
 
 void BarnesHutGravitySolver::check_body_movement ()
 {
 	for (Body& body : this->bodies) {
-		Node*& node = body.any.get_ref<Node*>();
+		Node *node = body.any.get_value<Node*>();
 
-		if (this->is_body_inside_node(&body, node) == false) {
+		if (is_body_inside_node(&body, node) == false) {
 			// Body moved to another node
-			this->remove_body(&body);
-			this->insert_body(&body, this->root);
+			Node *node = this->remove_body(&body);
+
+			// If a body is outside the universe, we don't insert
+			// it back in the tree. Therefore, it is important to
+			// create a big universe.
+
+			if (is_body_inside_node(&body, this->root))
+				insert_body(&body, node, this->root);
+			else {
+				// Body is outside the universe.
+				// We just remove it from the tree and let it float
+				// in the universe without gravity.
+				deallocate_node(node);
+			}
 		}
 	}
 }
 
-BarnesHutGravitySolver::InternalNode BarnesHutGravitySolver::create_internal_node (Node *node)
+void BarnesHutGravitySolver::setup_external_node (Body *body, Node *node, Node *parent, const Position parent_pos)
 {
-	mylib_assert_exception_msg(node->type == Node::Type::External, "source node is not an external node")
+	const Vector quarter_size = parent->size / fp(4);
 
-	InternalNode internal_node;
-	auto& nodes = internal_node.nodes;
+	node->type = Node::Type::External;
 
-	const Vector half_size = node->size / fp(2);
-	const Vector quarter_size = node->size / fp(4);
+	switch (parent_pos) {
+		case TopNorthEast:
+			node->center_pos = parent->center_pos + quarter_size;
+		break;
 
-	for (uint32_t i = 0; i < nodes.size(); i++) {
-		nodes[i] = new (memory_manager->allocate_type<Node>(1)) Node;
-		auto *n = nodes[i];
-		n->parent = node;
-		n->parent_pos = static_cast<Position>(i);
-		n->size = half_size;
-		n->half_size = quarter_size;
+		case TopNorthWest:
+			node->center_pos = parent->center_pos + Vector(-quarter_size.x, quarter_size.y, quarter_size.z);
+		break;
+
+		case TopSouthEast:
+			node->center_pos = parent->center_pos + Vector(quarter_size.x, quarter_size.y, -quarter_size.z);
+		break;
+
+		case TopSouthWest:
+			node->center_pos = parent->center_pos + Vector(-quarter_size.x, quarter_size.y, -quarter_size.z);
+		break;
+
+		case BottomNorthEast:
+			node->center_pos = parent->center_pos + Vector(quarter_size.x, -quarter_size.y, quarter_size.z);
+		break;
+
+		case BottomNorthWest:
+			node->center_pos = parent->center_pos + Vector(-quarter_size.x, -quarter_size.y, quarter_size.z);
+		break;
+
+		case BottomSouthEast:
+			node->center_pos = parent->center_pos + Vector(quarter_size.x, -quarter_size.y, -quarter_size.z);
+		break;
+
+		case BottomSouthWest:
+			node->center_pos = parent->center_pos - quarter_size;
+		break;
 	}
 
-	nodes[TopNorthEast]->center_pos = node->center_pos + quarter_size;
-	nodes[TopNorthWest]->center_pos = node->center_pos + Vector(-quarter_size.x, quarter_size.y, quarter_size.z);
-	nodes[TopSouthEast]->center_pos = node->center_pos + Vector(quarter_size.x, quarter_size.y, -quarter_size.z);
-	nodes[TopSouthWest]->center_pos = node->center_pos + Vector(-quarter_size.x, quarter_size.y, -quarter_size.z);
-	nodes[BottomNorthEast]->center_pos = node->center_pos + Vector(quarter_size.x, -quarter_size.y, quarter_size.z);
-	nodes[BottomNorthWest]->center_pos = node->center_pos + Vector(-quarter_size.x, -quarter_size.y, quarter_size.z);
-	nodes[BottomSouthEast]->center_pos = node->center_pos + Vector(quarter_size.x, -quarter_size.y, -quarter_size.z);
-	nodes[BottomSouthWest]->center_pos = node->center_pos - quarter_size;
+	node->size = parent->size / fp(2);
+	node->half_size = quarter_size;
 
-	return internal_node;
+	node->data = ExternalNode {
+		.body = body
+		};
+
+	node->parent = parent;
+	node->parent_pos = parent_pos;
+	body->any = node;
 }
 
 /*
@@ -344,14 +463,7 @@ BarnesHutGravitySolver::InternalNode BarnesHutGravitySolver::create_internal_nod
 
 void BarnesHutGravitySolver::calc_center_of_mass_bottom_up (Node *node)
 {
-	if (node == nullptr) [[unlikely]] // we reached the root node
-		return;
-
 	switch (node->type) {
-		case Node::Type::Empty:
-			mylib_assert_exception_msg(false, "node is empty")
-		break;
-
 		case Node::Type::External: {
 			const ExternalNode& external_node = std::get<ExternalNode>(node->data);
 			const Body *body = external_node.body;
@@ -376,16 +488,17 @@ void BarnesHutGravitySolver::calc_center_of_mass_bottom_up (Node *node)
 				node->center_of_mass += child->center_of_mass * child->mass;
 			}
 
-			// now, we calculate the center of mass of our children
+			// now, we calculate the center of mass
 			node->center_of_mass /= node->mass;
 		}
 		break;
 	}
 
-	this->calc_center_of_mass_bottom_up(node->parent);
+	if (node->parent != nullptr) [[likely]]
+		calc_center_of_mass_bottom_up(node->parent);
 }
 
-BarnesHutGravitySolver::Position BarnesHutGravitySolver::map_position (const Vector& pos, const Node *node) const noexcept
+BarnesHutGravitySolver::Position BarnesHutGravitySolver::map_position (const Vector& pos, const Node *node) noexcept
 {
 	const Vector& center_pos = node->center_pos;
 	const Vector& size = node->size;
@@ -411,7 +524,8 @@ BarnesHutGravitySolver::Position BarnesHutGravitySolver::map_position (const Vec
 				r = TopNorthWest;
 			else
 				r = TopSouthWest;
-		} else {
+		}
+		else {
 			if (pos.z > center_pos.z)
 				r = BottomNorthWest;
 			else
@@ -424,22 +538,16 @@ BarnesHutGravitySolver::Position BarnesHutGravitySolver::map_position (const Vec
 
 void BarnesHutGravitySolver::destroy_subtree (Node *node)
 {
-	switch (node->type) {
-		case Node::Type::Empty: [[fallthrough]];
-		case Node::Type::External:
-			memory_manager->deallocate_type<Node>(node, 1);
-		break;
+	if (node->type == Node::Type::Internal) {
+		InternalNode& internal_node = std::get<InternalNode>(node->data);
 
-		case Node::Type::Internal: {
-			InternalNode& internal_node = std::get<InternalNode>(node->data);
-
-			for (Node *node : internal_node.nodes)
-				this->destroy_subtree(node);
-
-			memory_manager->deallocate_type<Node>(node, 1);
+		for (Node *n : internal_node.nodes) {
+			if (n != nullptr)
+				this->destroy_subtree(n);
 		}
-		break;
 	}
+
+	deallocate_node(node);
 }
 
 // ---------------------------------------------------
