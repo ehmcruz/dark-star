@@ -109,17 +109,6 @@ public:
 			An external node represents a single body.
 			An internal node represents a group of bodies.
 
-			An internal node can have only one child only if
-			it is another external node.
-
-			If after removing a body from the tree an internal node's
-			children reduces to a single external node, then this internal
-			node must me downgraded to an external node.
-
-			Don't confuse number of children with number of bodies.
-			Number of children is the amount of non-null pointers in the nodes array.
-			Number of bodies is the total amount of bodies in the subtree.
-
 			Any node that is allocated is always an external node.
 			Internal nodes only appears when they are upgraded from an external node.
 
@@ -128,6 +117,15 @@ public:
 				- The body that was already stored in the external node.
 				- The body that was just inserted.
 			The two bodies can be allocated in the same or different child nodes.
+			An internal node can't have zero bodies.
+
+			If after removing a body from the tree an internal node's
+			number of children reduces to zero, then we need to remove
+			this internal node from the tree.
+
+			Don't confuse number of children with number of bodies.
+			Number of children is the amount of non-null pointers in the nodes array.
+			Number of bodies is the total amount of bodies in the subtree.
 		*/
 		
 		enum class Type {
@@ -141,9 +139,10 @@ public:
 		std::variant<ExternalNode, InternalNode> data;
 		Node *parent;
 		Position parent_pos;
-
-		// The three following variables are set by calc_center_of_mass_bottom_up
 		std::size_t n_bodies;
+
+		// The two following variables are set when
+		// calc_center_of_mass_top_down is called.
 		fp_t mass;
 		Vector center_of_mass;
 	};
@@ -170,6 +169,7 @@ private:
 	[[nodiscard]] Node* remove_body (Body *body);
 	
 	void check_body_movement ();
+	void calc_center_of_mass_top_down ();
 
 	void insert_body (Body *body, Node *new_node)
 	{
@@ -177,8 +177,6 @@ private:
 	}
 
 	static void insert_body (Body *body, Node *new_node, Node *node);
-	static void remove_and_downgrade_to_external (Node *node, Node *node_to_delete);
-	static void downgrade_to_external (Node *node);
 
 	// returns the new allocated node
 	static Node* upgrade_to_internal (Node *node);
@@ -190,8 +188,21 @@ private:
 		return std::get<InternalNode>(node->data).nodes[ get_only_child_pos(node) ];
 	}
 
-	static void calc_center_of_mass (Node *node);
+	static void calc_center_of_mass_top_down (Node *node);
 	static void calc_center_of_mass_bottom_up (Node *node);
+	static void calc_center_of_mass_bottom_up_internal (Node *node);
+
+	static inline void calc_center_of_mass_external (Node *node)
+	{
+		Body *body = std::get<ExternalNode>(node->data).body;
+		node->mass = body->get_mass();
+		node->center_of_mass = body->get_ref_pos();
+	}
+
+	static void calc_center_of_mass_internal (Node *node);
+	static void remove_internal_node (Node *node);
+	static void calc_n_bodies_bottom_up (Node *node);
+	static void calc_n_bodies_bottom_up_internal (Node *node);
 	static Position map_position (const Vector& pos, const Node *node) noexcept;
 	static void setup_external_node (Body *body, Node *node, Node *parent, const Position parent_pos);
 	static void destroy_subtree (Node *node);
