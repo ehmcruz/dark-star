@@ -7,7 +7,7 @@ Gravity calculation uses Newton's gravity equation.
 
 The project is in very early development process.
 
-# Gravty solvers
+# Gravity solvers
 
 Currently, the following gravity solvers are implemented:
 
