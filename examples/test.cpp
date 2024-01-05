@@ -189,9 +189,11 @@ static void load ()
 
 	create_cubes(4000);
 
-	//this->gravity_solver = new SimpleGravitySolver(this->bodies);
-	//this->gravity_solver = new SimpleParallelGravitySolver(this->bodies);
-	n_body->set_gravity_solver(new DarkStar::BarnesHutGravitySolver(n_body->get_ref_bodies(), 2.0));
+	//auto *gs = new DarkStar::SimpleGravitySolver(n_body->get_ref_bodies());
+	//auto *gs = new DarkStar::SimpleParallelGravitySolver(n_body->get_ref_bodies());
+	auto *gs = new DarkStar::BarnesHutGravitySolver(n_body->get_ref_bodies(), 2.0);
+	//gs->set_theta(0.4);
+	n_body->set_gravity_solver(gs);
 
 	std::cout << std::setprecision(2);
 }
@@ -246,6 +248,7 @@ static void main_loop ()
 {
 	const Uint8 *keys;
 	fp_t real_dt, required_dt, sleep_dt, busy_wait_dt, fps, physics_dt, render_dt;
+	uint64_t frame = 0;
 
 	keys = SDL_GetKeyboardState(nullptr);
 
@@ -264,7 +267,8 @@ static void main_loop ()
 
 	#if 1
 		dprintln("----------------------------------------------");
-		dprintln("start new frame render target_dt=", Config::target_dt,
+		dprintln("start frame ", frame, " render",
+			" target_dt=", Config::target_dt,
 			" required_dt=", required_dt,
 			" real_dt=", real_dt,
 			" sleep_dt=", sleep_dt,
@@ -319,6 +323,7 @@ static void main_loop ()
 		busy_wait_dt = ClockDuration_to_fp(elapsed);
 
 		fps = 1.0 / real_dt;
+		frame++;
 	}
 }
 

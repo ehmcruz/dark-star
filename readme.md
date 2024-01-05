@@ -5,9 +5,17 @@ Dark-Star is a n-body gravity simulator I am developing to learn new things.
 It simulates a 3D environment and renders it using OpenGL.    
 Gravity calculation uses Newton's gravity equation.
 
-The project is in very early development process.    
-Currently, the gravity solver is using a very simple algorithm with O(n^2) complexity.    
-I will later write an octree based algorithm to reduce the complexity.
+The project is in very early development process.
+
+# Gravty solvers
+
+Currently, the following gravity solvers are implemented:
+
+- Single-threaded Bruteforce algorithm with O(n^2) complexity.
+- Multi-threaded Bruteforce algorithm with O(n^2 / p) complexity.
+- Single-threaded Barnes Hut algorithm.
+
+Note: **n** is the number of bodies and **p** is the number of processors.
 
 # Dependencies
 

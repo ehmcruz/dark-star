@@ -174,8 +174,20 @@ BarnesHutGravitySolver::~BarnesHutGravitySolver ()
 	destroy_subtree(this->root);
 }
 
+#ifdef DARKSTAR_BARNES_HUT_ANALYSIS
+	static uint32_t gravity_fast_path;
+	static uint32_t gravity_slow_path;
+	static uint32_t gravity_slow_path_per_child;
+#endif
+
 void BarnesHutGravitySolver::calc_gravity ()
 {
+#ifdef DARKSTAR_BARNES_HUT_ANALYSIS
+	gravity_fast_path = 0;
+	gravity_slow_path = 0;
+	gravity_slow_path_per_child = 0;
+#endif
+
 	// Don't process a body where it's node is nullptr.
 	// This happens when a body is outside the universe.
 	// This can happen when the universe is too small.
@@ -190,6 +202,15 @@ void BarnesHutGravitySolver::calc_gravity ()
 		if (node != nullptr)
 			this->calc_gravity(&body, this->root);
 	}
+
+#ifdef DARKSTAR_BARNES_HUT_ANALYSIS
+	dprintln("calc_gravity: fast_path=", gravity_fast_path,
+		" slow_path=", gravity_slow_path,
+		" ratio=", static_cast<double>(gravity_fast_path) / static_cast<double>(gravity_slow_path + gravity_fast_path),
+		" slow_path_per_child=", gravity_slow_path_per_child,
+		" ratio_per_child=", static_cast<double>(gravity_fast_path) / static_cast<double>(gravity_slow_path_per_child + gravity_fast_path)
+		);
+#endif
 }
 
 void BarnesHutGravitySolver::calc_gravity (Body *body, Node *other_node) const noexcept
@@ -199,16 +220,27 @@ void BarnesHutGravitySolver::calc_gravity (Body *body, Node *other_node) const n
 	if (node == other_node) [[unlikely]]
 		return;
 
-	const fp_t dist = Mylib::Math::distance(body->get_ref_pos(), other_node->center_of_mass);
+	const fp_t dist_squared = (body->get_ref_pos() - other_node->center_of_mass).length_squared();
 
 	if (other_node->type == Node::Type::Internal) [[likely]] {
-		const fp_t ratio = other_node->size / dist;
+		// The ratio should actually be calculated with the distance.
+		// However, the square root calculation is expensive and was
+		// killing the performance.
+		// Therefore, we use the distance squared instead.
+		const fp_t ratio = (other_node->size * other_node->size) / dist_squared;
 
 		if (ratio > this->theta) [[unlikely]] {
+		#ifdef DARKSTAR_BARNES_HUT_ANALYSIS
+			gravity_slow_path++;
+		#endif
 			InternalNode& internal_node = std::get<InternalNode>(other_node->data);
 			for (Node *child : internal_node.nodes) {
 				if (child == nullptr)
 					continue;
+				
+			#ifdef DARKSTAR_BARNES_HUT_ANALYSIS
+				gravity_slow_path_per_child++;
+			#endif
 
 				this->calc_gravity(body, child);
 			}
@@ -216,6 +248,11 @@ void BarnesHutGravitySolver::calc_gravity (Body *body, Node *other_node) const n
 		}
 	}
 
+#ifdef DARKSTAR_BARNES_HUT_ANALYSIS
+	gravity_fast_path++;
+#endif
+
+	const fp_t dist = std::sqrt(dist_squared);
 	const fp_t force = calc_gravitational_force(body->get_mass(), other_node->mass, dist);
 	const Vector grav_force = Mylib::Math::with_length(other_node->center_of_mass - body->get_ref_pos(), force);
 
@@ -449,11 +486,17 @@ BarnesHutGravitySolver::Position BarnesHutGravitySolver::get_only_child_pos (con
 
 void BarnesHutGravitySolver::check_body_movement ()
 {
+#ifdef DARKSTAR_BARNES_HUT_ANALYSIS
+	uint32_t moved_bodies = 0;
+#endif
 	for (Body& body : this->bodies) {
 		Node *node = body.any.get_value<Node*>();
 
 		if (node != nullptr && is_body_inside_node(&body, node) == false) {
 			// Body moved to another node
+		#ifdef DARKSTAR_BARNES_HUT_ANALYSIS
+				moved_bodies++;
+		#endif
 			Node *node = this->remove_body(&body);
 
 			// If a body is outside the universe, we don't insert
@@ -470,11 +513,10 @@ void BarnesHutGravitySolver::check_body_movement ()
 			}
 		}
 	}
-}
 
-void BarnesHutGravitySolver::calc_center_of_mass_top_down ()
-{
-	calc_center_of_mass_top_down(this->root);
+#ifdef DARKSTAR_BARNES_HUT_ANALYSIS
+	dprintln("check_body_movement: moved_bodies=", moved_bodies);
+#endif
 }
 
 void BarnesHutGravitySolver::calc_center_of_mass_top_down (Node *node)

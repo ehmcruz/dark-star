@@ -14,16 +14,17 @@ namespace DarkStar
 
 // ---------------------------------------------------
 
-#define DARKSTAR_SANITY_CHECK
+//#define DARKSTAR_SANITY_CHECK
+//#define DARKSTAR_BARNES_HUT_ANALYSIS
 
 // ---------------------------------------------------
 
 namespace Config
 {
 	#ifdef DARKSTAR_SANITY_CHECK
-		inline constexpr bool sanity_checks = true;
+		inline constexpr bool sanity_check = true;
 	#else
-		inline constexpr bool sanity_checks = false;
+		inline constexpr bool sanity_check = false;
 	#endif
 
 	inline constexpr fp_t distance_exp_factor = 9;

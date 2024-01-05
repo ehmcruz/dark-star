@@ -11,8 +11,10 @@ MYLIB = ../my-lib
 MYGLIB = ../my-game-lib
 THREADPOOLLIB = ../../git-others/thread-pool
 
-CPPFLAGS = -std=c++23 -Wall -O3 -g -I$(MYLIB)/include -I$(MYGLIB)/include -I$(THREADPOOLLIB)/include -I./include -DMYGLIB_FP_TYPE=float
-LDFLAGS = -std=c++23
+WITH_GPROF = #-pg
+
+CPPFLAGS = -std=c++23 -Wall -O3 $(WITH_GPROF) -g -I$(MYLIB)/include -I$(MYGLIB)/include -I$(THREADPOOLLIB)/include -I./include -DMYGLIB_FP_TYPE=float
+LDFLAGS = -std=c++23 $(WITH_GPROF)
 
 # ----------------------------------
 
