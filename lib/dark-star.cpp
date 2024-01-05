@@ -1,5 +1,7 @@
 #include <cmath>
 
+#include <my-lib/memory-pool.h>
+
 #include <darkstar/types.h>
 #include <darkstar/dark-star.h>
 
@@ -12,7 +14,8 @@ namespace DarkStar
 
 void init ()
 {
-	memory_manager = new Mylib::Memory::DefaultManager();
+	//memory_manager = new Mylib::Memory::DefaultManager();
+	memory_manager = new Mylib::Memory::PoolManager(1024, 8, 32 * 1024);
 
 	game_lib = &MyGlib::Lib::init({
 		.graphics_type = MyGlib::Graphics::Manager::Type::Opengl,

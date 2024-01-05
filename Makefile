@@ -11,7 +11,7 @@ MYLIB = ../my-lib
 MYGLIB = ../my-game-lib
 THREADPOOLLIB = ../../git-others/thread-pool
 
-CPPFLAGS = -std=c++23 -Wall -g -I$(MYLIB)/include -I$(MYGLIB)/include -I$(THREADPOOLLIB)/include -I./include -DMYGLIB_FP_TYPE=float
+CPPFLAGS = -std=c++23 -Wall -O3 -g -I$(MYLIB)/include -I$(MYGLIB)/include -I$(THREADPOOLLIB)/include -I./include -DMYGLIB_FP_TYPE=float
 LDFLAGS = -std=c++23
 
 # ----------------------------------
@@ -30,7 +30,7 @@ endif
 # ----------------------------------
 
 # need to add a rule for each .o/.cpp at the bottom
-MYLIB_OBJS = #ext/memory.o
+MYLIB_OBJS = ext/memory-pool.o
 
 SRCS := $(wildcard lib/*.cpp)
 
@@ -63,9 +63,9 @@ examples/test.exe: $(OBJS) $(TESTS_OBJS)
 
 # ----------------------------------
 
-ext/memory.o: $(MYLIB)/src/memory.cpp $(HEADERS)
+ext/memory-pool.o: $(MYLIB)/src/memory-pool.cpp $(HEADERS)
 	mkdir -p ext
-	$(CPP) $(CPPFLAGS) -c -o ext/memory.o $(MYLIB)/src/memory.cpp
+	$(CPP) $(CPPFLAGS) -c -o ext/memory-pool.o $(MYLIB)/src/memory-pool.cpp
 
 # ----------------------------------
 

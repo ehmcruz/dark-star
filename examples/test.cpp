@@ -187,7 +187,7 @@ static void load ()
 	sun->get_ref_pos().z -= meters_to_dist_unit(DarkStar::UserLib::distance_from_earth_to_sun_m);
 	sun->set_color(Color::green());
 
-	create_cubes(5);
+	create_cubes(4000);
 
 	//this->gravity_solver = new SimpleGravitySolver(this->bodies);
 	//this->gravity_solver = new SimpleParallelGravitySolver(this->bodies);

@@ -452,7 +452,7 @@ void BarnesHutGravitySolver::check_body_movement ()
 	for (Body& body : this->bodies) {
 		Node *node = body.any.get_value<Node*>();
 
-		if (is_body_inside_node(&body, node) == false) {
+		if (node != nullptr && is_body_inside_node(&body, node) == false) {
 			// Body moved to another node
 			Node *node = this->remove_body(&body);
 
