@@ -242,10 +242,8 @@ void BarnesHutGravitySolver::calc_gravity (Body *body, Node *other_node) const n
 			gravity_slow_path++;
 		#endif
 			InternalNode& internal_node = std::get<InternalNode>(other_node->data);
-			for (Node *child : internal_node.nodes) {
-				if (child == nullptr)
-					continue;
-				
+
+			for (Node *child : internal_node.node_list) {
 			#ifdef DARKSTAR_BARNES_HUT_ANALYSIS
 				gravity_slow_path_per_child++;
 			#endif
@@ -289,15 +287,14 @@ void BarnesHutGravitySolver::insert_body (Body *body, Node *new_node, Node *node
 
 		case Node::Type::Internal: {
 			InternalNode& internal_node = std::get<InternalNode>(node->data);
-			auto& nodes = internal_node.nodes;
 			const Position pos = map_position(body, node);
 
-			if (nodes[pos] == nullptr) {
-				nodes[pos] = new_node;
-				setup_external_node(body, nodes[pos], node, pos);
+			if (internal_node[pos] == nullptr) {
+				internal_node.insert(new_node, pos);
+				setup_external_node(body, internal_node[pos], node, pos);
 			}
 			else
-				insert_body(body, new_node, nodes[pos]);
+				insert_body(body, new_node, internal_node[pos]);
 
 			node->n_bodies++;
 		}
@@ -315,19 +312,20 @@ BarnesHutGravitySolver::Node* BarnesHutGravitySolver::upgrade_to_internal (Node 
 	// transform current node into an internal node
 	node->type = Node::Type::Internal;
 	node->data = InternalNode {
-		.nodes = std::array<Node*, 8>({ nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr })
+		.node_index = std::array<Node*, 8>({ nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr }),
+		.node_list_pos = std::array<int8_t, 8>({ -1, -1, -1, -1, -1, -1, -1, -1 }),
+		.node_list = boost::container::static_vector<Node*, 8>()
 		};
 	node->n_bodies = 1;
 
 	InternalNode& internal_node = std::get<InternalNode>(node->data);
-	auto& nodes = internal_node.nodes;
 
 	// insert the current body
 	const Position pos = map_position(body, node);
-	nodes[pos] = allocate_node(); // allocate since we need two nodes in this case
-	setup_external_node(body, nodes[pos], node, pos);
+	internal_node.insert(allocate_node(), pos); // allocate since we need two nodes in this case
+	setup_external_node(body, internal_node[pos], node, pos);
 
-	return nodes[pos];
+	return internal_node[pos];
 }
 
 void BarnesHutGravitySolver::setup_external_node (Body *body, Node *node, Node *parent, const Position parent_pos)
@@ -404,8 +402,7 @@ void BarnesHutGravitySolver::setup_external_node (Body *body, Node *node, Node *
 		remove_internal_node(parent);
 	else {
 		InternalNode& parent_internal_node = std::get<InternalNode>(parent->data);
-		auto& parent_nodes = parent_internal_node.nodes;
-		parent_nodes[node->parent_pos] = nullptr;
+		parent_internal_node.remove(node->parent_pos);
 	}
 
 	body->any = nullptr;
@@ -432,8 +429,7 @@ void BarnesHutGravitySolver::remove_internal_node (Node *node)
 		remove_internal_node(parent);
 	else {
 		InternalNode& parent_internal_node = std::get<InternalNode>(parent->data);
-		auto& parent_nodes = parent_internal_node.nodes;
-		parent_nodes[node->parent_pos] = nullptr;
+		parent_internal_node.remove(node->parent_pos);
 	}
 
 	deallocate_node(node);
@@ -455,40 +451,15 @@ void BarnesHutGravitySolver::calc_n_bodies_bottom_up_internal (Node *node)
 	darkstar_sanity_check(node->type == Node::Type::Internal)
 
 	InternalNode& internal_node = std::get<InternalNode>(node->data);
-	auto& nodes = internal_node.nodes;
 
 	node->n_bodies = 0;
 
-	for (Node *child : nodes) {
-		if (child != nullptr)
-			node->n_bodies += child->n_bodies;
+	for (Node *child : internal_node.node_list) {
+		node->n_bodies += child->n_bodies;
 	}
 
 	if (node->parent != nullptr)
 		calc_n_bodies_bottom_up_internal(node->parent);
-}
-
-BarnesHutGravitySolver::Position BarnesHutGravitySolver::get_only_child_pos (const Node *node)
-{
-	darkstar_sanity_check(node->type == Node::Type::Internal)
-
-	const InternalNode& internal_node = std::get<InternalNode>(node->data);
-	const auto& nodes = internal_node.nodes;
-	Position only_child_pos;
-	bool found = false;
-
-	for (uint32_t pos = 0; const Node *child : nodes) {
-		if (child != nullptr) {
-			darkstar_sanity_check(found == false)
-			found = true;
-			only_child_pos = static_cast<Position>(pos);
-		}
-		pos++;
-	}
-
-	mylib_assert_exception_msg(found == true, "internal node has no children")
-
-	return only_child_pos;
 }
 
 void BarnesHutGravitySolver::check_body_movement ()
@@ -529,12 +500,12 @@ void BarnesHutGravitySolver::move_body_bottom_up (Body *body)
 	darkstar_sanity_check_msg(parent != nullptr, "cannot remove root node")
 	darkstar_sanity_check(parent->type == Node::Type::Internal)
 
-	auto& parent_nodes = std::get<InternalNode>(parent->data).nodes;
+	auto& parent_internal = std::get<InternalNode>(parent->data);
 
 	// We remove the node from the parent, but not the body.
 	// Because the body may still be inside the parent node.
 	// For instance, it may have moved from TopNorthEast to TopNorthWest.
-	parent_nodes[node->parent_pos] = nullptr;
+	parent_internal.remove(node->parent_pos);
 
 	// We will not de-allocate body.node because, in case the
 	// body is still inside the universe, we will re-use it
@@ -560,15 +531,15 @@ void BarnesHutGravitySolver::move_body_bottom_up (Body *body, Node *node)
 		// We just insert the body in the tree.
 		darkstar_sanity_check(node->type == Node::Type::Internal)
 
-		auto& nodes = std::get<InternalNode>(node->data).nodes;
+		auto& internal_node = std::get<InternalNode>(node->data);
 		const Position pos = map_position(body, node);
 
-		if (nodes[pos] == nullptr) {
-			nodes[pos] = body->any.get_value<Node*>();
-			setup_external_node(body, nodes[pos], node, pos);
+		if (internal_node[pos] == nullptr) {
+			internal_node.insert(body->any.get_value<Node*>(), pos);
+			setup_external_node(body, internal_node[pos], node, pos);
 		}
 		else
-			insert_body(body, body->any.get_value<Node*>(), nodes[pos]);
+			insert_body(body, body->any.get_value<Node*>(), internal_node[pos]);
 	}
 	else {
 		darkstar_sanity_check(node->n_bodies > 0)
@@ -585,9 +556,9 @@ void BarnesHutGravitySolver::move_body_bottom_up (Body *body, Node *node)
 			
 			darkstar_sanity_check_msg(parent != nullptr, "cannot remove root node")
 
-			auto& parent_nodes = std::get<InternalNode>(parent->data).nodes;
+			auto& internal_parent_node = std::get<InternalNode>(parent->data);
 
-			parent_nodes[node->parent_pos] = nullptr;
+			internal_parent_node.remove(node->parent_pos);
 			deallocate_node(node);
 		}
 
@@ -601,19 +572,16 @@ void BarnesHutGravitySolver::calc_center_of_mass_top_down (Node *node)
 		calc_center_of_mass_external(node);
 	else {
 		InternalNode& internal_node = std::get<InternalNode>(node->data);
-		auto& nodes = internal_node.nodes;
 
 		#ifdef DARKSTAR_BARNES_HUT_ANALYSIS
 			internal_child_n++;
 		#endif
 		
-		for (Node *child : nodes) {
-			if (child != nullptr) {
-			#ifdef DARKSTAR_BARNES_HUT_ANALYSIS
-				internal_child_sum++;
-			#endif
-				calc_center_of_mass_top_down(child);
-			}
+		for (Node *child : internal_node.node_list) {
+		#ifdef DARKSTAR_BARNES_HUT_ANALYSIS
+			internal_child_sum++;
+		#endif
+			calc_center_of_mass_top_down(child);
 		}
 
 		calc_center_of_mass_internal(node);
@@ -685,10 +653,7 @@ void BarnesHutGravitySolver::calc_center_of_mass_internal (Node *node)
 
 	// first, we need our total mass
 	
-	for (const Node *child : internal_node.nodes) {
-		if (child == nullptr)
-			continue;
-		
+	for (const Node *child : internal_node.node_list) {
 		node->mass += child->mass;
 		node->center_of_mass += child->center_of_mass * child->mass;
 	}
@@ -739,9 +704,8 @@ void BarnesHutGravitySolver::destroy_subtree (Node *node)
 	if (node->type == Node::Type::Internal) {
 		InternalNode& internal_node = std::get<InternalNode>(node->data);
 
-		for (Node *n : internal_node.nodes) {
-			if (n != nullptr)
-				destroy_subtree(n);
+		for (Node *n : internal_node.node_list) {
+			destroy_subtree(n);
 		}
 	}
 

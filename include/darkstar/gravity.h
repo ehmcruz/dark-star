@@ -8,6 +8,8 @@
 
 #include <cmath>
 
+#include <boost/container/static_vector.hpp>
+
 #include <my-lib/macros.h>
 
 #include <darkstar/types.h>
@@ -15,6 +17,7 @@
 #include <darkstar/constants.h>
 #include <darkstar/body.h>
 #include <darkstar/dark-star.h>
+#include <darkstar/debug.h>
 
 #include <BS_thread_pool.hpp>
 
@@ -98,7 +101,35 @@ private:
 	};
 
 	struct InternalNode {
-		std::array<Node*, 8> nodes;
+		std::array<Node*, 8> node_index;
+		std::array<int8_t, 8> node_list_pos;
+		boost::container::static_vector<Node*, 8> node_list;
+
+		Node* operator[] (const Position pos)
+		{
+			return this->node_index[pos];
+		}
+
+		void insert (Node *node, const Position pos)
+		{
+			this->node_index[pos] = node;
+			this->node_list_pos[pos] = this->node_list.size();
+			this->node_list.push_back(node);
+		}
+
+		void remove (const Position pos)
+		{
+			this->node_index[pos] = nullptr;
+			const auto deleted_pos = this->node_list_pos[pos];
+			this->node_list_pos[pos] = -1;
+			
+			this->node_list.erase(this->node_list.begin() + deleted_pos);
+
+			for (auto& p : this->node_list_pos) {
+				if (p > deleted_pos)
+					p--;
+			}
+		}
 	};
 
 	OO_ENCAPSULATE_SCALAR_INIT(fp_t, theta, 0.5)
@@ -171,7 +202,7 @@ private:
 	void check_body_movement ();
 	void move_body_bottom_up (Body *body);
 	void move_body_bottom_up (Body *body, Node *node);
-	
+
 	void calc_center_of_mass_top_down ()
 	{
 		calc_center_of_mass_top_down(this->root);
@@ -186,13 +217,6 @@ private:
 
 	// returns the new allocated node
 	static Node* upgrade_to_internal (Node *node);
-	
-	static Position get_only_child_pos (const Node *node);
-
-	static inline Node* get_only_child (const Node *node)
-	{
-		return std::get<InternalNode>(node->data).nodes[ get_only_child_pos(node) ];
-	}
 
 	static void calc_center_of_mass_top_down (Node *node);
 	static void calc_center_of_mass_bottom_up (Node *node);
