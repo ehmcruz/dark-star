@@ -24,6 +24,7 @@
 
 #include <my-lib/math.h>
 #include <my-lib/math-vector.h>
+#include <my-lib/math-geometry.h>
 
 // -------------------------------------------
 
@@ -64,6 +65,8 @@ using DarkStar::meters_to_dist_unit;
 using DarkStar::k_meters_to_dist_unit;
 using DarkStar::kg_to_mass_unit;
 
+using Line = Mylib::Math::Line<fp_t, 3>;
+
 // -------------------------------------------
 
 namespace Config {
@@ -84,9 +87,9 @@ Body *earth = nullptr;
 Body *moon = nullptr;
 Body *sun = nullptr;
 
-Point world_camera_pos;
-Point world_camera_target;
-Point world_camera_vector;
+std::array<Line, 2> cameras;
+
+uint32_t current_camera = 0;
 
 std::size_t n_steps = 1;
 
@@ -113,6 +116,27 @@ constexpr fp_t ClockDuration_to_fp (const ClockDuration& d)
 
 // -------------------------------------------
 
+void key_down_callback (const MyGlib::Event::KeyDown::Type& event)
+{
+	switch (event.key_code)
+	{
+		case SDLK_SPACE:
+			current_camera++;
+			if (current_camera >= cameras.size())
+				current_camera = 0;
+			break;
+		
+		case SDLK_ESCAPE:
+			alive = false;
+		break;
+	
+		default:
+			break;
+	}
+}
+
+// -------------------------------------------
+
 Vector gen_random_vector (const fp_t min, const fp_t max, const fp_t min_length)
 {
 	Vector v;
@@ -132,7 +156,7 @@ Body create_random_cube ()
 		.type = Body::Type::Satellite,
 		.mass = kg_to_mass_unit(1000),
 		.radius = k_meters_to_dist_unit(2000),
-		.pos = earth->get_ref_pos() + gen_random_vector(k_meters_to_dist_unit(-300000), k_meters_to_dist_unit(300000), k_meters_to_dist_unit(150000)),
+		.pos = earth->get_ref_pos() + gen_random_vector(k_meters_to_dist_unit(-500000), k_meters_to_dist_unit(500000), k_meters_to_dist_unit(200000)),
 		.vel = gen_random_vector(-k_meters_to_dist_unit(0.9), k_meters_to_dist_unit(0.9), k_meters_to_dist_unit(0.3)),
 		.shape_type = Shape::Type::Cube3D
 		});
@@ -156,6 +180,8 @@ void create_cubes (const uint32_t n)
 
 static void load ()
 {
+	event_manager->key_down().subscribe( Mylib::Trigger::make_callback_function<MyGlib::Event::KeyDown::Type>(&key_down_callback) );
+
 	std::random_device rd;
 	rgenerator.seed( rd() );
 
@@ -183,8 +209,8 @@ static void load ()
 	sun = &n_body->add_body(DarkStar::UserLib::make_sun());
 	//sun->set_radius(earth->get_radius() * fp(2));
 	//sun->set_pos((earth->get_ref_pos() + moon->get_ref_pos()) / fp(2));
-	sun->set_pos(earth->get_ref_pos());
-	sun->get_ref_pos().z -= meters_to_dist_unit(DarkStar::UserLib::distance_from_earth_to_sun_m);
+	sun->set_radius(sun->get_radius() * scale * fp(1));
+	sun->set_pos(earth->get_ref_pos() + Vector(0, 0, -meters_to_dist_unit(DarkStar::UserLib::distance_from_earth_to_sun_m)));
 	sun->set_color(Color::green());
 
 	create_cubes(10000);
@@ -228,11 +254,19 @@ static fp_t setup_step (const fp_t real_dt)
 
 static void setup_render ()
 {
-	Vector e_pos = earth->get_value_pos();
+	cameras[0].direction = Mylib::Math::with_length(Vector(1, -0.5, 1), k_meters_to_dist_unit(8e5));
+	cameras[0].base_point = earth->get_ref_pos() - cameras[0].direction;
 
-	world_camera_vector = Mylib::Math::with_length(Vector(1, -0.5, 1), k_meters_to_dist_unit(6e5));
-	world_camera_target = earth->get_ref_pos();
-	world_camera_pos = world_camera_target - world_camera_vector;
+	{
+		cameras[1].base_point = earth->get_ref_pos() + Vector(0, earth->get_radius() + k_meters_to_dist_unit(1000), 0);
+		cameras[1].direction = sun->get_ref_pos() - cameras[1].base_point;
+		Vector perpendicular = Mylib::Math::cross_product(cameras[1].direction, Vector(0, 1, 0));
+		perpendicular.set_length(k_meters_to_dist_unit(100000));
+		cameras[1].direction.set_length(cameras[1].direction.length() + k_meters_to_dist_unit(200000));
+		cameras[1].base_point = sun->get_ref_pos() - cameras[1].direction + perpendicular;
+		cameras[1].direction = sun->get_ref_pos() - cameras[1].base_point;
+	}
+
 	//Point center = (earth->get_ref_pos() + moon->get_ref_pos()) / fp(2);
 	//world_camera_pos = center;
 	//world_camera_pos.y += k_meters_to_dist_unit(100000);
@@ -240,7 +274,9 @@ static void setup_render ()
 	//world_camera_pos = Vector(e_pos.x, e_pos.y, e_pos.z - k_meters_to_dist_unit(2));
 	//world_camera_target = center;
 
-	n_body->setup_render(world_camera_pos, world_camera_target);
+	const auto& camera = cameras[current_camera];
+
+	n_body->setup_render(camera.base_point, camera.base_point + camera.direction);
 }
 
 // -------------------------------------------
