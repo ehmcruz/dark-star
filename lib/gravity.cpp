@@ -499,26 +499,95 @@ void BarnesHutGravitySolver::check_body_movement ()
 		#ifdef DARKSTAR_BARNES_HUT_ANALYSIS
 				moved_bodies++;
 		#endif
-			Node *node = this->remove_body(&body);
-
 			// If a body is outside the universe, we don't insert
 			// it back in the tree. Therefore, it is important to
 			// create a big universe.
 
-			if (is_body_inside_node(&body, this->root))
-				this->insert_body(&body, node);
-			else {
-				// Body is outside the universe.
-				// We just remove it from the tree and let it float
-				// in the universe without gravity.
-				deallocate_node(node);
-			}
+			this->move_body_bottom_up(&body);
 		}
 	}
 
 #ifdef DARKSTAR_BARNES_HUT_ANALYSIS
 	dprintln("check_body_movement: moved_bodies=", moved_bodies);
 #endif
+
+}
+
+void BarnesHutGravitySolver::move_body_bottom_up (Body *body)
+{
+	// This function assumes that body has gone outside its node.
+
+	Node *node = body->any.get_value<Node*>();
+	Node *parent = node->parent;
+
+	darkstar_sanity_check(node->type == Node::Type::External)
+	darkstar_sanity_check_msg(parent != nullptr, "cannot remove root node")
+	darkstar_sanity_check(parent->type == Node::Type::Internal)
+
+	auto& parent_nodes = std::get<InternalNode>(parent->data).nodes;
+
+	// We remove the node from the parent, but not the body.
+	// Because the body may still be inside the parent node.
+	// For instance, it may have moved from TopNorthEast to TopNorthWest.
+	parent_nodes[node->parent_pos] = nullptr;
+
+	// We will not de-allocate body.node because, in case the
+	// body is still inside the universe, we will re-use it
+	// to re-insert the body in its new place in the tree.
+	
+	this->move_body_bottom_up(body, parent);
+}
+
+void BarnesHutGravitySolver::move_body_bottom_up (Body *body, Node *node)
+{
+	// This function assumes that node is either nullptr or an Internal node.
+
+	if (node == nullptr) [[unlikely]] {
+		// Body is outside the universe.
+		// We just remove it from the tree and let it float
+		// in the universe without gravity.
+		deallocate_node(body->any.get_value<Node*>());
+		body->any = nullptr;
+	}
+	else if (is_body_inside_node(body, node)) {
+		// Found the node that contains the body.
+		// No need to update n_bodies because the body was already inside me.
+		// We just insert the body in the tree.
+		darkstar_sanity_check(node->type == Node::Type::Internal)
+
+		auto& nodes = std::get<InternalNode>(node->data).nodes;
+		const Position pos = map_position(body, node);
+
+		if (nodes[pos] == nullptr) {
+			nodes[pos] = body->any.get_value<Node*>();
+			setup_external_node(body, nodes[pos], node, pos);
+		}
+		else
+			insert_body(body, body->any.get_value<Node*>(), nodes[pos]);
+	}
+	else {
+		darkstar_sanity_check(node->n_bodies > 0)
+		darkstar_sanity_check(node->type == Node::Type::Internal)
+
+		// Body is outside the node.
+		node->n_bodies--;
+
+		Node *parent = node->parent;
+
+		if (node->n_bodies == 0) {
+			// The node has no bodies.
+			// We can remove it.
+			
+			darkstar_sanity_check_msg(parent != nullptr, "cannot remove root node")
+
+			auto& parent_nodes = std::get<InternalNode>(parent->data).nodes;
+
+			parent_nodes[node->parent_pos] = nullptr;
+			deallocate_node(node);
+		}
+
+		this->move_body_bottom_up(body, parent);
+	}
 }
 
 void BarnesHutGravitySolver::calc_center_of_mass_top_down (Node *node)

@@ -169,7 +169,9 @@ private:
 	[[nodiscard]] Node* remove_body (Body *body);
 	
 	void check_body_movement ();
-
+	void move_body_bottom_up (Body *body);
+	void move_body_bottom_up (Body *body, Node *node);
+	
 	void calc_center_of_mass_top_down ()
 	{
 		calc_center_of_mass_top_down(this->root);
