@@ -35,10 +35,18 @@ Body::Body (const BodyDescriptor& desc)
 
 void Body::render ()
 {
+	constexpr fp_t threshold = 0.005;
+	fp_t rotation_angle = 0;
+
+	if ((this->radius / this->distance_to_camera) > threshold)
+		rotation_angle = this->rotation_angle;
+	else
+		rotation_angle = 0;
+
 	switch (this->shape_type) {
 		case Shape::Type::Sphere3D: {
 			Sphere3D& sphere = std::get<Sphere3D>(this->shape);
-			sphere.rotate(this->rotation_angle);
+			sphere.rotate(rotation_angle);
 
 			if (std::holds_alternative<RenderColor>(this->render_specific))
 				renderer->draw_sphere3D(sphere, to_graphics_dist(this->pos), std::get<RenderColor>(this->render_specific).color);
@@ -51,7 +59,7 @@ void Body::render ()
 
 		case Shape::Type::Cube3D: {
 			Cube3D& cube = std::get<Cube3D>(this->shape);
-			cube.rotate(this->rotation_angle);
+			cube.rotate(rotation_angle);
 
 			if (std::holds_alternative<RenderColor>(this->render_specific))
 				renderer->draw_cube3D(cube, to_graphics_dist(this->pos), std::get<RenderColor>(this->render_specific).color);
