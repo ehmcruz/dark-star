@@ -180,6 +180,8 @@ BarnesHutGravitySolver::~BarnesHutGravitySolver ()
 	static uint32_t gravity_fast_path;
 	static uint32_t gravity_slow_path;
 	static uint32_t gravity_slow_path_per_child;
+	static uint64_t internal_child_sum;
+	static uint64_t internal_child_n;
 #endif
 
 void BarnesHutGravitySolver::calc_gravity ()
@@ -188,6 +190,8 @@ void BarnesHutGravitySolver::calc_gravity ()
 	gravity_fast_path = 0;
 	gravity_slow_path = 0;
 	gravity_slow_path_per_child = 0;
+	internal_child_sum = 0;
+	internal_child_n = 0;
 #endif
 
 	// Don't process a body where it's node is nullptr.
@@ -210,7 +214,8 @@ void BarnesHutGravitySolver::calc_gravity ()
 		" slow_path=", gravity_slow_path,
 		" ratio=", static_cast<double>(gravity_fast_path) / static_cast<double>(gravity_slow_path + gravity_fast_path),
 		" slow_path_per_child=", gravity_slow_path_per_child,
-		" ratio_per_child=", static_cast<double>(gravity_fast_path) / static_cast<double>(gravity_slow_path_per_child + gravity_fast_path)
+		" ratio_per_child=", static_cast<double>(gravity_fast_path) / static_cast<double>(gravity_slow_path_per_child + gravity_fast_path),
+		'\n', "internal child mean=", static_cast<double>(internal_child_sum) / static_cast<double>(internal_child_n)
 		);
 #endif
 }
@@ -598,9 +603,17 @@ void BarnesHutGravitySolver::calc_center_of_mass_top_down (Node *node)
 		InternalNode& internal_node = std::get<InternalNode>(node->data);
 		auto& nodes = internal_node.nodes;
 
+		#ifdef DARKSTAR_BARNES_HUT_ANALYSIS
+			internal_child_n++;
+		#endif
+		
 		for (Node *child : nodes) {
-			if (child != nullptr)
+			if (child != nullptr) {
+			#ifdef DARKSTAR_BARNES_HUT_ANALYSIS
+				internal_child_sum++;
+			#endif
 				calc_center_of_mass_top_down(child);
+			}
 		}
 
 		calc_center_of_mass_internal(node);
