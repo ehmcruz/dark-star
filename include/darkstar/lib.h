@@ -102,12 +102,12 @@ constexpr fp_t mass_unit_to_kg (const fp_t mass_unit) noexcept
 	g_unit = (C_ * m1_ * m2_ / d_^2) * 1e(-11 + $m - 3$d)
 */
 
-constexpr fp_t calc_gravitational_force (const fp_t mass_a, const fp_t mass_b, const fp_t dist) noexcept
+constexpr fp_t calc_gravitational_force (const fp_t mass_a, const fp_t mass_b, const fp_t dist_squared) noexcept
 {
-	//return newtonian_gravitational_constant * mass_a * mass_b / (dist * dist);
+	//return newtonian_gravitational_constant * mass_a * mass_b / (dist_squared);
 
 	constexpr fp_t C_ = fp(6.67430);
-	return (C_ * (mass_a / dist) * (mass_b / dist))
+	return (C_ * (mass_a) * (mass_b / dist_squared))
 	       * std::pow(fp(10), fp(-11) + Config::mass_exp_factor - fp(3)*Config::distance_exp_factor);
 }
 

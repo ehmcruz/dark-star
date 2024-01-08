@@ -67,7 +67,7 @@ using DarkStar::kg_to_mass_unit;
 // -------------------------------------------
 
 namespace Config {
-	inline constexpr fp_t target_fps = 30.0;
+	inline constexpr fp_t target_fps = 60.0;
 	inline constexpr fp_t target_dt = 1.0 / target_fps;
 	inline constexpr fp_t sleep_threshold = target_dt * 0.9;
 	inline constexpr bool sleep_to_save_cpu = true;

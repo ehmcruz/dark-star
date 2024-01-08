@@ -29,9 +29,10 @@ void SimpleGravitySolver::calc_gravity ()
 		for (std::size_t j = i + 1; j < n; j++) {
 			Body& b2 = this->bodies[j];
 
-			const fp_t dist = Mylib::Math::distance(b1.get_ref_pos(), b2.get_ref_pos());
-			const fp_t force = calc_gravitational_force(b1.get_mass(), b2.get_mass(), dist);
-			const Vector grav_force = Mylib::Math::with_length(b2.get_ref_pos() - b1.get_ref_pos(), force);
+			const Vector direction = b2.get_ref_pos() - b1.get_ref_pos();
+			const fp_t dist_squared = direction.length_squared();
+			const fp_t force = calc_gravitational_force(b1.get_mass(), b2.get_mass(), dist_squared);
+			const Vector grav_force = Mylib::Math::with_length(direction, force);
 
 			b1.get_ref_rforce() += grav_force;
 			b2.get_ref_rforce() -= grav_force;
@@ -70,9 +71,10 @@ void SimpleParallelGravitySolver::calc_gravity ()
 				for (std::size_t j = i + 1; j < n; j++) {
 					const Body& b2 = this->bodies[j];
 
-					const fp_t dist = Mylib::Math::distance(b1.get_ref_pos(), b2.get_ref_pos());
-					const fp_t force = calc_gravitational_force(b1.get_mass(), b2.get_mass(), dist);
-					const Vector grav_force = Mylib::Math::with_length(b2.get_ref_pos() - b1.get_ref_pos(), force);
+					const Vector direction = b2.get_ref_pos() - b1.get_ref_pos();
+					const fp_t dist_squared = direction.length_squared();
+					const fp_t force = calc_gravitational_force(b1.get_mass(), b2.get_mass(), dist_squared);
+					const Vector grav_force = Mylib::Math::with_length(direction, force);
 
 					auto& force_j = this->forces[row + j];
 
@@ -220,7 +222,8 @@ void BarnesHutGravitySolver::calc_gravity (Body *body, Node *other_node) const n
 	if (node == other_node) [[unlikely]]
 		return;
 
-	const fp_t dist_squared = (body->get_ref_pos() - other_node->center_of_mass).length_squared();
+	const Vector direction = other_node->center_of_mass - body->get_ref_pos();
+	const fp_t dist_squared = direction.length_squared();
 
 	if (other_node->type == Node::Type::Internal) [[likely]] {
 		// The ratio should actually be calculated with the distance.
@@ -252,9 +255,8 @@ void BarnesHutGravitySolver::calc_gravity (Body *body, Node *other_node) const n
 	gravity_fast_path++;
 #endif
 
-	const fp_t dist = std::sqrt(dist_squared);
-	const fp_t force = calc_gravitational_force(body->get_mass(), other_node->mass, dist);
-	const Vector grav_force = Mylib::Math::with_length(other_node->center_of_mass - body->get_ref_pos(), force);
+	const fp_t force = calc_gravitational_force(body->get_mass(), other_node->mass, dist_squared);
+	const Vector grav_force = Mylib::Math::with_length(direction, force);
 
 	body->get_ref_rforce() += grav_force;
 }
