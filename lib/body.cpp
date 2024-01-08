@@ -36,7 +36,7 @@ Body::Body (const BodyDescriptor& desc)
 void Body::render ()
 {
 	constexpr fp_t threshold = 0.005;
-	fp_t rotation_angle = 0;
+	fp_t rotation_angle;
 
 	if ((this->radius / this->distance_to_camera) > threshold)
 		rotation_angle = this->rotation_angle;
