@@ -166,7 +166,7 @@ static void load ()
 	texture_moon = renderer->load_texture("assets/moon-medium.jpg");
 	renderer->end_texture_loading();
 
-	n_body = new DarkStar::N_Body(10000);
+	n_body = new DarkStar::N_Body(20000);
 
 	earth = &n_body->add_body(DarkStar::UserLib::make_earth());
 	earth->set_radius(earth->get_radius() * scale);
@@ -187,11 +187,12 @@ static void load ()
 	sun->get_ref_pos().z -= meters_to_dist_unit(DarkStar::UserLib::distance_from_earth_to_sun_m);
 	sun->set_color(Color::green());
 
-	create_cubes(4000);
+	create_cubes(10000);
 
 	//auto *gs = new DarkStar::SimpleGravitySolver(n_body->get_ref_bodies());
 	//auto *gs = new DarkStar::SimpleParallelGravitySolver(n_body->get_ref_bodies());
-	auto *gs = new DarkStar::BarnesHutGravitySolver(n_body->get_ref_bodies(), 2.0);
+	//auto *gs = new DarkStar::BarnesHutGravitySolver(n_body->get_ref_bodies(), 2.0);
+	auto *gs = new DarkStar::BarnesHutGravityParallelSolver(n_body->get_ref_bodies(), 2.0);
 	//gs->set_theta(0.4);
 	n_body->set_gravity_solver(gs);
 

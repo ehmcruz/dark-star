@@ -19,8 +19,6 @@
 #include <darkstar/dark-star.h>
 #include <darkstar/debug.h>
 
-#include <BS_thread_pool.hpp>
-
 // ---------------------------------------------------
 
 namespace DarkStar
@@ -65,7 +63,6 @@ class SimpleParallelGravitySolver : public GravitySolver
 {
 private:
 	std::vector<Vector> forces;
-	BS::thread_pool tpool;
 
 public:
 	SimpleParallelGravitySolver (std::vector<Body>& bodies_);
@@ -80,7 +77,7 @@ class BarnesHutGravitySolver : public GravitySolver
 public:
 	struct Node;
 
-private:
+protected:
 	enum Position {
 		// West-East refers to the X axis
 		// Top-Bottom refers to the Y axis
@@ -122,7 +119,7 @@ private:
 			this->node_index[pos] = nullptr;
 			const auto deleted_pos = this->node_list_pos[pos];
 			this->node_list_pos[pos] = -1;
-			
+
 			this->node_list.erase(this->node_list.begin() + deleted_pos);
 
 			for (auto& p : this->node_list_pos) {
@@ -178,19 +175,19 @@ public:
 		Vector center_of_mass;
 	};
 
-private:
+protected:
 	Node *root;
 
 public:
 	// Size_scale is how much we will multiply the size of the given universe.
 	// Bodies that eventually fall outisde the universe will be removed
 	// from gravity calculation.
-	BarnesHutGravitySolver (std::vector<Body>& bodies_, const fp_t size_scale = 2);
+	BarnesHutGravitySolver (std::vector<Body>& bodies_, const fp_t size_scale);
 	~BarnesHutGravitySolver ();
 
-	void calc_gravity () override final;
+	void calc_gravity () override;
 
-private:
+protected:
 	void calc_gravity (Body *body, Node *other_node) const noexcept;
 
 	// remove_body doesn't de-allocate the node, neither the body.
@@ -261,6 +258,23 @@ private:
 	{
 		memory_manager->deallocate_type<Node>(node, 1);
 	}
+};
+
+// ---------------------------------------------------
+
+class BarnesHutGravityParallelSolver : public BarnesHutGravitySolver
+{
+protected:
+	uint32_t parallel_threshold;
+
+public:
+	using BarnesHutGravitySolver::BarnesHutGravitySolver;
+
+	void calc_gravity () override final;
+
+protected:
+	void calc_center_of_mass_top_down_parallel (Node *node);
+	void calc_center_of_mass_top_down_parallel ();
 };
 
 // ---------------------------------------------------

@@ -14,6 +14,7 @@ Currently, the following gravity solvers are implemented:
 - Single-threaded Bruteforce algorithm with O(n^2) complexity.
 - Multi-threaded Bruteforce algorithm with O(n^2 / p) complexity.
 - Single-threaded Barnes Hut algorithm.
+- Multi-threaded Barnes Hut algorithm.
 
 Note: **n** is the number of bodies and **p** is the number of processors.
 

@@ -2,6 +2,10 @@
 
 #include <cmath>
 
+#ifdef _OPENMP
+	#include <omp.h>
+#endif
+
 #include <darkstar/types.h>
 #include <darkstar/debug.h>
 #include <darkstar/config.h>
@@ -45,13 +49,13 @@ void SimpleGravitySolver::calc_gravity ()
 SimpleParallelGravitySolver::SimpleParallelGravitySolver (std::vector<Body>& bodies_)
 	: GravitySolver(bodies_)
 {
-	dprintln("Thread pool number of threads: ", this->tpool.get_thread_count());
 }
 
+#if 1
 void SimpleParallelGravitySolver::calc_gravity ()
 {
 	const std::size_t n = this->bodies.size();
-	const auto nt = this->tpool.get_thread_count();
+	const auto nt = thread_pool->get_thread_count();
 
 	if (this->forces.size() != (n * nt))
 		this->forces.resize(n * nt);
@@ -59,7 +63,7 @@ void SimpleParallelGravitySolver::calc_gravity ()
 	for (auto& force : this->forces)
 		force.set_zero();
 	
-	this->tpool.detach_blocks<std::size_t>(0, n,
+	thread_pool->detach_blocks<std::size_t>(0, n,
 		[this, n, nt] (const std::size_t i_ini, const std::size_t i_end) -> void {
 			const auto tid = *BS::this_thread::get_index();
 			const auto row = n * tid;
@@ -87,13 +91,60 @@ void SimpleParallelGravitySolver::calc_gravity ()
 		// balance the load between the threads, since the load of
 		// the blocks are different.
 	
-	this->tpool.wait();
+	thread_pool->wait();
 	
 	for (std::size_t tid = 0; tid < nt; tid++) {
 		for (std::size_t i = 0; i < n; i++)
 			this->bodies[i].get_ref_rforce() += this->forces[n*tid + i];
 	}
 }
+#else
+void SimpleParallelGravitySolver::calc_gravity ()
+{
+	const std::size_t n = this->bodies.size();
+	const auto nt = my_omp_num_threads;
+
+	const std::size_t chunk_size = (n / nt) / 2;
+
+	if (this->forces.size() != (n * nt))
+		this->forces.resize(n * nt);
+	
+	for (auto& force : this->forces)
+		force.set_zero();
+	
+	#pragma omp parallel
+	{
+		const auto tid = omp_get_thread_num();
+		const auto row = n * tid;
+		//dprintln("Thread ", tid, " calculating gravity for bodies ", i_ini, " to ", i_end - 1);
+
+		#pragma omp for schedule(dynamic, chunk_size)
+		for (std::size_t i = 0; i < n; i++) {
+			const Body& b1 = this->bodies[i];
+			auto& force_i = this->forces[row + i];
+
+			for (std::size_t j = i + 1; j < n; j++) {
+				const Body& b2 = this->bodies[j];
+
+				const Vector direction = b2.get_ref_pos() - b1.get_ref_pos();
+				const fp_t dist_squared = direction.length_squared();
+				const fp_t force = calc_gravitational_force(b1.get_mass(), b2.get_mass(), dist_squared);
+				const Vector grav_force = Mylib::Math::with_length(direction, force);
+
+				auto& force_j = this->forces[row + j];
+
+				force_i += grav_force;
+				force_j -= grav_force;
+			}
+		}
+	}
+		
+	for (std::size_t tid = 0; tid < nt; tid++) {
+		for (std::size_t i = 0; i < n; i++)
+			this->bodies[i].get_ref_rforce() += this->forces[n*tid + i];
+	}
+}
+#endif
 
 // ---------------------------------------------------
 
@@ -183,42 +234,6 @@ BarnesHutGravitySolver::~BarnesHutGravitySolver ()
 	static uint64_t internal_child_sum;
 	static uint64_t internal_child_n;
 #endif
-
-void BarnesHutGravitySolver::calc_gravity ()
-{
-#ifdef DARKSTAR_BARNES_HUT_ANALYSIS
-	gravity_fast_path = 0;
-	gravity_slow_path = 0;
-	gravity_slow_path_per_child = 0;
-	internal_child_sum = 0;
-	internal_child_n = 0;
-#endif
-
-	// Don't process a body where it's node is nullptr.
-	// This happens when a body is outside the universe.
-	// This can happen when the universe is too small.
-	// Therefore, it is important to create a big universe.
-
-	this->check_body_movement();
-	this->calc_center_of_mass_top_down();
-
-	for (Body& body : this->bodies) {
-		Node *node = body.any.get_value<Node*>();
-
-		if (node != nullptr)
-			this->calc_gravity(&body, this->root);
-	}
-
-#ifdef DARKSTAR_BARNES_HUT_ANALYSIS
-	dprintln("calc_gravity: fast_path=", gravity_fast_path,
-		" slow_path=", gravity_slow_path,
-		" ratio=", static_cast<double>(gravity_fast_path) / static_cast<double>(gravity_slow_path + gravity_fast_path),
-		" slow_path_per_child=", gravity_slow_path_per_child,
-		" ratio_per_child=", static_cast<double>(gravity_fast_path) / static_cast<double>(gravity_slow_path_per_child + gravity_fast_path),
-		'\n', "internal child mean=", static_cast<double>(internal_child_sum) / static_cast<double>(internal_child_n)
-		);
-#endif
-}
 
 void BarnesHutGravitySolver::calc_gravity (Body *body, Node *other_node) const noexcept
 {
@@ -486,7 +501,6 @@ void BarnesHutGravitySolver::check_body_movement ()
 #ifdef DARKSTAR_BARNES_HUT_ANALYSIS
 	dprintln("check_body_movement: moved_bodies=", moved_bodies);
 #endif
-
 }
 
 void BarnesHutGravitySolver::move_body_bottom_up (Body *body)
@@ -710,6 +724,165 @@ void BarnesHutGravitySolver::destroy_subtree (Node *node)
 	}
 
 	deallocate_node(node);
+}
+
+// ---------------------------------------------------
+
+void BarnesHutGravitySolver::calc_gravity ()
+{
+#ifdef DARKSTAR_BARNES_HUT_ANALYSIS
+	gravity_fast_path = 0;
+	gravity_slow_path = 0;
+	gravity_slow_path_per_child = 0;
+	internal_child_sum = 0;
+	internal_child_n = 0;
+#endif
+
+	// Don't process a body where it's node is nullptr.
+	// This happens when a body is outside the universe.
+	// This can happen when the universe is too small.
+	// Therefore, it is important to create a big universe.
+
+	this->check_body_movement();
+	this->calc_center_of_mass_top_down();
+
+	for (Body& body : this->bodies) {
+		Node *node = body.any.get_value<Node*>();
+
+		if (node != nullptr)
+			this->calc_gravity(&body, this->root);
+	}
+
+#ifdef DARKSTAR_BARNES_HUT_ANALYSIS
+	dprintln("calc_gravity: fast_path=", gravity_fast_path,
+		" slow_path=", gravity_slow_path,
+		" ratio=", static_cast<double>(gravity_fast_path) / static_cast<double>(gravity_slow_path + gravity_fast_path),
+		" slow_path_per_child=", gravity_slow_path_per_child,
+		" ratio_per_child=", static_cast<double>(gravity_fast_path) / static_cast<double>(gravity_slow_path_per_child + gravity_fast_path),
+		'\n', "internal child mean=", static_cast<double>(internal_child_sum) / static_cast<double>(internal_child_n)
+		);
+#endif
+}
+
+// ---------------------------------------------------
+
+#if 1
+void BarnesHutGravityParallelSolver::calc_gravity ()
+{
+	// Don't process a body where it's node is nullptr.
+	// This happens when a body is outside the universe.
+	// This can happen when the universe is too small.
+	// Therefore, it is important to create a big universe.
+
+	this->check_body_movement();
+	this->calc_center_of_mass_top_down();
+	//this->calc_center_of_mass_top_down_parallel(); // it is way slower than the sequential
+
+	const auto n_bodies = this->bodies.size();
+	const auto nt = thread_pool->get_thread_count();
+
+	thread_pool->detach_blocks<std::size_t>(0, n_bodies,
+		[this] (const std::size_t i_ini, const std::size_t i_end) -> void {
+			for (uint32_t i = i_ini; i < i_end; i++) {
+				Body& body = this->bodies[i];
+				Node *node = body.any.get_value<Node*>();
+
+				if (node != nullptr)
+					this->BarnesHutGravitySolver::calc_gravity(&body, this->root);
+			}
+		}, nt * 2); // see the below comment about this number
+		// We create twice the number of blocks as threads to try to
+		// balance the load between the threads, since the load of
+		// the blocks are different.
+
+	thread_pool->wait();
+}
+#else
+void BarnesHutGravityParallelSolver::calc_gravity ()
+{
+	// Don't process a body where it's node is nullptr.
+	// This happens when a body is outside the universe.
+	// This can happen when the universe is too small.
+	// Therefore, it is important to create a big universe.
+
+	this->check_body_movement();
+	this->calc_center_of_mass_top_down();
+	//this->calc_center_of_mass_top_down_parallel();
+
+	const auto n = this->bodies.size();
+	const auto nt = my_omp_num_threads;
+
+	const std::size_t chunk_size = (n / nt) / 4;
+
+	#pragma omp parallel for schedule(dynamic, chunk_size)
+	for (uint32_t i = 0; i < n; i++) {
+		Body& body = this->bodies[i];
+		Node *node = body.any.get_value<Node*>();
+
+		if (node != nullptr)
+			this->BarnesHutGravitySolver::calc_gravity(&body, this->root);
+	}
+}
+#endif
+
+void BarnesHutGravityParallelSolver::calc_center_of_mass_top_down_parallel (Node *node)
+{
+#ifdef _OPENMP
+	if (node->type == Node::Type::External)
+		calc_center_of_mass_external(node);
+	else {
+		InternalNode& internal_node = std::get<InternalNode>(node->data);
+
+		if (internal_node.node_list.size() > 1) {
+			// first, we call all the parallel childs
+			uint32_t n_parallel = 0;
+			
+			for (Node *child : internal_node.node_list) {
+				if (child->n_bodies >= this->parallel_threshold) {
+					n_parallel++;
+
+					#pragma omp task
+					this->calc_center_of_mass_top_down_parallel(child);
+				}
+			}
+
+			// now, we call all the childs that make no sense to execute in parallel
+
+			for (Node *child : internal_node.node_list) {
+				if (child->n_bodies < this->parallel_threshold)
+					calc_center_of_mass_top_down(child); // sequential execution
+			}
+
+			// now, we wait the parallel childs to finish their job
+			if (n_parallel) {
+				#pragma omp taskwait
+			}
+		}
+		else
+			calc_center_of_mass_top_down(internal_node.node_list[0]); // sequential execution
+
+		// finally we calculate the center of mass of the current node
+
+		calc_center_of_mass_internal(node);
+	}
+#else
+	mylib_throw_exception_msg("OpenMP is not enabled");
+#endif
+}
+
+void BarnesHutGravityParallelSolver::calc_center_of_mass_top_down_parallel ()
+{
+#ifdef _OPENMP
+	this->parallel_threshold = (this->bodies.size() / my_omp_num_threads) * 2;
+
+	#pragma omp parallel
+	{
+		#pragma omp single
+		this->calc_center_of_mass_top_down_parallel(this->root);
+	}
+#else
+	mylib_throw_exception_msg("OpenMP is not enabled");
+#endif
 }
 
 // ---------------------------------------------------

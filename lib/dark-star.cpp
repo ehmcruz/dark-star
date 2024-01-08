@@ -3,6 +3,7 @@
 #include <my-lib/memory-pool.h>
 
 #include <darkstar/types.h>
+#include <darkstar/debug.h>
 #include <darkstar/dark-star.h>
 
 // ---------------------------------------------------
@@ -16,6 +17,23 @@ void init ()
 {
 	//memory_manager = new Mylib::Memory::DefaultManager();
 	memory_manager = new Mylib::Memory::PoolManager(1024, 8, 32 * 1024);
+
+	thread_pool = new BS::thread_pool;
+	
+	dprintln("Thread pool number of threads: ", thread_pool->get_thread_count());
+
+	#ifdef _OPENMP
+	{
+		#pragma omp parallel
+		{
+			#pragma omp single nowait
+			{
+				const auto nt = omp_get_num_threads();
+				mylib_assert_exception(nt == my_omp_num_threads)
+			}
+		}
+	}
+	#endif
 
 	game_lib = &MyGlib::Lib::init({
 		.graphics_type = MyGlib::Graphics::Manager::Type::Opengl,
