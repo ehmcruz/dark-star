@@ -14,8 +14,8 @@
 
 #include <my-game-lib/graphics.h>
 
-#include <darkstar/types.h>
-#include <darkstar/lib.h>
+#include <dark-star/types.h>
+#include <dark-star/lib.h>
 
 // ---------------------------------------------------
 
@@ -77,22 +77,25 @@ protected:
 	};
 
 protected:
-	OO_ENCAPSULATE_SCALAR(Type, type)
-	OO_ENCAPSULATE_SCALAR(fp_t, mass)
-	OO_ENCAPSULATE_SCALAR_REACT(fp_t, radius, this->update_radius();)
-	OO_ENCAPSULATE_OBJ(Point, pos)
-	OO_ENCAPSULATE_OBJ(Vector, vel)
-	OO_ENCAPSULATE_SCALAR_READONLY(Shape::Type, shape_type)
+	MYLIB_OO_ENCAPSULATE_SCALAR(Type, type)
+	MYLIB_OO_ENCAPSULATE_SCALAR(fp_t, mass)
 
-	OO_ENCAPSULATE_OBJ_INIT(Vector, self_force, Vector::zero())
-	OO_ENCAPSULATE_SCALAR_INIT(fp_t, angular_velocity, 0)
-	OO_ENCAPSULATE_SCALAR_INIT(fp_t, rotation_angle, 0)
+	// the following variable write function is set manually
+	MYLIB_OO_ENCAPSULATE_SCALAR_READONLY(fp_t, radius)
+
+	MYLIB_OO_ENCAPSULATE_OBJ_WITH_COPY_MOVE(Point, pos)
+	MYLIB_OO_ENCAPSULATE_OBJ_WITH_COPY_MOVE(Vector, vel)
+	MYLIB_OO_ENCAPSULATE_SCALAR_READONLY(Shape::Type, shape_type)
+
+	MYLIB_OO_ENCAPSULATE_OBJ_INIT(Vector, self_force, Vector::zero())
+	MYLIB_OO_ENCAPSULATE_SCALAR_INIT(fp_t, angular_velocity, 0)
+	MYLIB_OO_ENCAPSULATE_SCALAR_INIT(fp_t, rotation_angle, 0)
 
 	// resulting force of a simulation step
 	// must be reset to zero before each step
-	OO_ENCAPSULATE_OBJ(Vector, rforce)
+	MYLIB_OO_ENCAPSULATE_OBJ_WITH_COPY_MOVE(Vector, rforce)
 
-	OO_ENCAPSULATE_PTR_INIT(N_Body*, n_body, nullptr)
+	MYLIB_OO_ENCAPSULATE_PTR_INIT(N_Body*, n_body, nullptr)
 
 	std::variant<Cube3D, Sphere3D> shape;
 	std::variant<Star, Planet> type_specific;
@@ -134,6 +137,12 @@ public:
 		this->render_specific = RenderTexture {
 			.texture_desc = texture_desc
 			};
+	}
+
+	inline void set_radius (const fp_t radius)
+	{
+		this->radius = radius;
+		this->update_radius();
 	}
 
 	void setup_rotation (const fp_t angular_velocity, const Vector& axis);

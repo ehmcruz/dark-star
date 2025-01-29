@@ -12,12 +12,12 @@
 
 #include <my-lib/macros.h>
 
-#include <darkstar/types.h>
-#include <darkstar/config.h>
-#include <darkstar/constants.h>
-#include <darkstar/body.h>
-#include <darkstar/dark-star.h>
-#include <darkstar/debug.h>
+#include <dark-star/types.h>
+#include <dark-star/config.h>
+#include <dark-star/constants.h>
+#include <dark-star/body.h>
+#include <dark-star/dark-star.h>
+#include <dark-star/debug.h>
 
 // ---------------------------------------------------
 
@@ -129,7 +129,7 @@ protected:
 		}
 	};
 
-	OO_ENCAPSULATE_SCALAR_INIT(fp_t, theta, 0.5)
+	MYLIB_OO_ENCAPSULATE_SCALAR_INIT(fp_t, theta, 0.5)
 
 public:
 	struct Node {

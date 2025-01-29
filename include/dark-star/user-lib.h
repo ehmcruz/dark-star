@@ -3,9 +3,9 @@
 
 // ---------------------------------------------------
 
-#include <darkstar/types.h>
-#include <darkstar/lib.h>
-#include <darkstar/body.h>
+#include <dark-star/types.h>
+#include <dark-star/lib.h>
+#include <dark-star/body.h>
 
 #include <my-lib/math.h>
 

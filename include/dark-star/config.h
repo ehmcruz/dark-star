@@ -5,7 +5,7 @@
 
 #include <cmath>
 
-#include <darkstar/types.h>
+#include <dark-star/types.h>
 
 // ---------------------------------------------------
 

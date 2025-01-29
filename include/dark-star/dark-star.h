@@ -9,7 +9,7 @@
 
 #include <BS_thread_pool.hpp>
 
-#include <darkstar/types.h>
+#include <dark-star/types.h>
 
 #ifdef _OPENMP
 	#include <omp.h>

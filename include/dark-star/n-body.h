@@ -9,10 +9,10 @@
 
 #include <my-game-lib/graphics.h>
 
-#include <darkstar/types.h>
-#include <darkstar/lib.h>
-#include <darkstar/body.h>
-#include <darkstar/gravity.h>
+#include <dark-star/types.h>
+#include <dark-star/lib.h>
+#include <dark-star/body.h>
+#include <dark-star/gravity.h>
 
 // ---------------------------------------------------
 
@@ -30,8 +30,8 @@ protected:
 	Point camera_pos;
 	Point camera_target;
 
-	OO_ENCAPSULATE_PTR_INIT(GravitySolver*, gravity_solver, nullptr)
-	OO_ENCAPSULATE_OBJ(std::vector<Body>, bodies)
+	MYLIB_OO_ENCAPSULATE_PTR_INIT(GravitySolver*, gravity_solver, nullptr)
+	MYLIB_OO_ENCAPSULATE_OBJ(std::vector<Body>, bodies)
 
 public:
 	N_Body (const std::size_t max_elements_);

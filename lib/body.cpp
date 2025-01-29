@@ -1,10 +1,10 @@
 #include <cmath>
 
-#include <darkstar/types.h>
-#include <darkstar/body.h>
-#include <darkstar/n-body.h>
-#include <darkstar/debug.h>
-#include <darkstar/dark-star.h>
+#include <dark-star/types.h>
+#include <dark-star/body.h>
+#include <dark-star/n-body.h>
+#include <dark-star/debug.h>
+#include <dark-star/dark-star.h>
 
 // ---------------------------------------------------
 

@@ -5,9 +5,9 @@
 
 #include <cmath>
 
-#include <darkstar/types.h>
-#include <darkstar/config.h>
-#include <darkstar/constants.h>
+#include <dark-star/types.h>
+#include <dark-star/config.h>
+#include <dark-star/constants.h>
 
 // ---------------------------------------------------
 

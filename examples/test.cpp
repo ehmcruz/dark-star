@@ -13,14 +13,14 @@
 #include <my-game-lib/debug.h>
 #include <my-game-lib/graphics.h>
 
-#include <darkstar/types.h>
-#include <darkstar/config.h>
-#include <darkstar/constants.h>
-#include <darkstar/body.h>
-#include <darkstar/n-body.h>
-#include <darkstar/dark-star.h>
-#include <darkstar/gravity.h>
-#include <darkstar/user-lib.h>
+#include <dark-star/types.h>
+#include <dark-star/config.h>
+#include <dark-star/constants.h>
+#include <dark-star/body.h>
+#include <dark-star/n-body.h>
+#include <dark-star/dark-star.h>
+#include <dark-star/gravity.h>
+#include <dark-star/user-lib.h>
 
 #include <my-lib/math.h>
 #include <my-lib/math-vector.h>
