@@ -6,6 +6,8 @@
 #include <my-lib/macros.h>
 #include <my-lib/math-vector.h>
 
+#include <my-game-lib/my-game-lib.h>
+
 // ---------------------------------------------------
 
 namespace DarkStar
@@ -23,6 +25,9 @@ using Point = Vector;
 using gfp_t = float;
 using gVector = Vector3f;
 using gPoint = Vector3f;
+
+using Color = MyGlib::Graphics::Color;
+using Colors = MyGlib::Graphics::Colors;
 
 // ---------------------------------------------------
 

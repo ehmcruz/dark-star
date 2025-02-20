@@ -1,7 +1,7 @@
 # To compile
 # make MYGLIB_TARGET_LINUX=1
 
-CPP = g++
+CPP = g++-14
 
 TESTS_SRC := $(wildcard examples/*.cpp)
 

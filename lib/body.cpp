@@ -28,7 +28,7 @@ Body::Body (const BodyDescriptor& desc)
 	else
 		mylib_throw_exception_msg("invalid shape type");
 
-	this->render_specific = RenderColor { .color = Color::white() }; // default
+	this->render_specific = RenderColor { .color = Colors::white }; // default
 }
 
 // ---------------------------------------------------

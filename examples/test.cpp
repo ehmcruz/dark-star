@@ -54,6 +54,7 @@ using DarkStar::Point;
 using DarkStar::gVector;
 using DarkStar::gPoint;
 using DarkStar::Color;
+using DarkStar::Colors;
 
 using DarkStar::renderer;
 using DarkStar::event_manager;
@@ -161,7 +162,7 @@ Body create_random_cube ()
 		.shape_type = Shape::Type::Cube3D
 		});
 
-	b.set_color(Color::random(rgenerator));
+	b.set_color(Colors::random(rgenerator));
 	b.setup_rotation(degrees_to_radians(fp(360) / fp(60*60*24)), normalize(gen_random_vector(-1, 1, 0.1)));
 
 	dprintln("create_random_cube: pos=", b.get_ref_pos(), " vel=", b.get_ref_vel());
@@ -180,7 +181,7 @@ void create_cubes (const uint32_t n)
 
 static void load ()
 {
-	event_manager->key_down().subscribe( Mylib::Trigger::make_callback_function<MyGlib::Event::KeyDown::Type>(&key_down_callback) );
+	event_manager->key_down().subscribe( Mylib::Event::make_callback_function<MyGlib::Event::KeyDown::Type>(&key_down_callback) );
 
 	std::random_device rd;
 	rgenerator.seed( rd() );
@@ -211,9 +212,9 @@ static void load ()
 	//sun->set_pos((earth->get_ref_pos() + moon->get_ref_pos()) / fp(2));
 	sun->set_radius(sun->get_radius() * scale * fp(1));
 	sun->set_pos(earth->get_ref_pos() + Vector(0, 0, -meters_to_dist_unit(DarkStar::UserLib::distance_from_earth_to_sun_m)));
-	sun->set_color(Color::green());
+	sun->set_color(Colors::green);
 
-	create_cubes(10000);
+	create_cubes(1000);
 
 	//auto *gs = new DarkStar::SimpleGravitySolver(n_body->get_ref_bodies());
 	//auto *gs = new DarkStar::SimpleParallelGravitySolver(n_body->get_ref_bodies());
@@ -243,7 +244,7 @@ static void quit_callback (const MyGlib::Event::Quit::Type& event)
 
 static fp_t setup_step (const fp_t real_dt)
 {
-	const fp_t virtual_dt = real_dt * fp(3600) * fp(4);
+	const fp_t virtual_dt = real_dt * fp(3600) * fp(8);
 	//n_steps = 60; // * 24;
 	n_steps = 1;
 
@@ -254,17 +255,19 @@ static fp_t setup_step (const fp_t real_dt)
 
 static void setup_render ()
 {
-	cameras[0].direction = Mylib::Math::with_length(Vector(1, -0.5, 1), k_meters_to_dist_unit(8e5));
-	cameras[0].base_point = earth->get_ref_pos() - cameras[0].direction;
+	const auto camera_up = Vector(0, 1, 0);
+
+	cameras[0].vector = Mylib::Math::with_length(Vector(1, -0.5, 1), k_meters_to_dist_unit(8e5));
+	cameras[0].point = earth->get_ref_pos() - cameras[0].vector;
 
 	{
-		cameras[1].base_point = earth->get_ref_pos() + Vector(0, earth->get_radius() + k_meters_to_dist_unit(1000), 0);
-		cameras[1].direction = sun->get_ref_pos() - cameras[1].base_point;
-		Vector perpendicular = Mylib::Math::cross_product(cameras[1].direction, Vector(0, 1, 0));
+		cameras[1].point = earth->get_ref_pos() + Vector(0, earth->get_radius() + k_meters_to_dist_unit(1000), 0);
+		cameras[1].vector = sun->get_ref_pos() - cameras[1].point;
+		Vector perpendicular = Mylib::Math::cross_product(cameras[1].vector, Vector(0, 1, 0));
 		perpendicular.set_length(k_meters_to_dist_unit(100000));
-		cameras[1].direction.set_length(cameras[1].direction.length() + k_meters_to_dist_unit(200000));
-		cameras[1].base_point = sun->get_ref_pos() - cameras[1].direction + perpendicular;
-		cameras[1].direction = sun->get_ref_pos() - cameras[1].base_point;
+		cameras[1].vector.set_length(cameras[1].vector.length() + k_meters_to_dist_unit(200000));
+		cameras[1].point = sun->get_ref_pos() - cameras[1].vector + perpendicular;
+		cameras[1].vector = sun->get_ref_pos() - cameras[1].point;
 	}
 
 	//Point center = (earth->get_ref_pos() + moon->get_ref_pos()) / fp(2);
@@ -276,7 +279,7 @@ static void setup_render ()
 
 	const auto& camera = cameras[current_camera];
 
-	n_body->setup_render(camera.base_point, camera.base_point + camera.direction);
+	n_body->setup_render(camera.point, camera.point + camera.vector, camera_up);
 }
 
 // -------------------------------------------
@@ -370,7 +373,7 @@ void main (int argc, char **argv)
 {
 	DarkStar::init();
 
-	DarkStar::event_manager->quit().subscribe( Mylib::Trigger::make_callback_function<MyGlib::Event::Quit::Type>(&quit_callback) );
+	DarkStar::event_manager->quit().subscribe( Mylib::Event::make_callback_function<MyGlib::Event::Quit::Type>(&quit_callback) );
 
 	load();
 	main_loop();

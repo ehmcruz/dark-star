@@ -29,6 +29,7 @@ protected:
 	MyGlib::Graphics::RenderArgs3D render_opts;
 	Point camera_pos;
 	Point camera_target;
+	Vector camera_up;
 
 	MYLIB_OO_ENCAPSULATE_PTR_INIT(GravitySolver*, gravity_solver, nullptr)
 	MYLIB_OO_ENCAPSULATE_OBJ(std::vector<Body>, bodies)
@@ -46,10 +47,11 @@ public:
 	
 	void simulate_step (const fp_t dt_, const std::size_t n_steps = 1);
 
-	inline void setup_render (const Point& camera_pos, const Point& camera_target) noexcept
+	inline void setup_render (const Point& camera_pos, const Point& camera_target, const Vector& camera_up) noexcept
 	{
 		this->camera_pos = camera_pos;
 		this->camera_target = camera_target;
+		this->camera_up = camera_up;
 	}
 
 	void render ();

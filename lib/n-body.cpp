@@ -24,10 +24,13 @@ N_Body::N_Body (const std::size_t max_elements_)
 {
 	this->bodies.reserve(this->max_elements);
 
-	this->render_opts.fov_y = Mylib::Math::degrees_to_radians(gfp(45));
-	this->render_opts.z_near = 0.1f;
-	this->render_opts.z_far = 100.0f;
-	this->render_opts.ambient_light_color = {1, 1, 1, 0.2};
+	this->render_opts.projection = MyGlib::Graphics::PerspectiveProjectionInfo {
+		.fov_y = Mylib::Math::degrees_to_radians(gfp(45)),
+		.z_near = 0.1f,
+		.z_far = 100.0f
+	};
+	
+	this->render_opts.ambient_light_color = Color(1, 1, 1, 0.2);
 }
 
 // ---------------------------------------------------
@@ -51,7 +54,7 @@ Body& N_Body::add_body (const Body& body)
 	if (b.get_type() == Body::Type::Star) {
 		b.get_type_specific() = Body::Star {
 			.light_desc = renderer->add_light_point_source(
-				gPoint(0, 0, 0), Color::white()
+				gPoint(0, 0, 0), Colors::white
 			)
 		};
 
@@ -131,6 +134,7 @@ void N_Body::render ()
 
 	this->render_opts.world_camera_pos = to_graphics_dist(this->camera_pos);
 	this->render_opts.world_camera_target = to_graphics_dist(this->camera_target);
+	this->render_opts.world_camera_up = to_graphics_dist(this->camera_up);
 
 	for (Body *star : this->stars) {
 		Body::Star& star_specific = std::get<Body::Star>(star->get_type_specific());
@@ -144,9 +148,10 @@ void N_Body::render ()
 			renderer->clear_buffers(MyGlib::Graphics::Manager::VertexBufferBit | MyGlib::Graphics::Manager::DepthBufferBit);
 		else
 			first = false;
-
-		this->render_opts.z_near = range.graphics_z_near;
-		this->render_opts.z_far = range.graphics_z_far;
+		
+		auto& projection = std::get<MyGlib::Graphics::PerspectiveProjectionInfo>(this->render_opts.projection);
+		projection.z_near = range.graphics_z_near;
+		projection.z_far = range.graphics_z_far;
 
 //		dprintln("N_Body::render: rendering range: z_near = ", range.z_near, ", z_far = ", range.z_far);
 
