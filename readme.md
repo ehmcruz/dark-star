@@ -24,6 +24,33 @@ To compile, you need a C++23 capable compiler and the following libraries:
 
 - SDL
 - OpenGL
-- My-lib (https://github.com/ehmcruz/my-lib). The Makefile is configured to search **my-lib** in the same parent folder as this repository. If you put somewhere else, just modify the Makefile.
+- My-lib (https://github.com/ehmcruz/my-lib).
 - My-game-library (https://github.com/ehmcruz/my-game-lib)
 - Thread Pool library (https://github.com/bshoshany/thread-pool)
+
+The Makefile is configured to search **my-lib** and **my-game-lib** in the same parent folder as this repository. If you put somewhere else, just modify the Makefile.
+
+Edit in the Makefile the path to **thread-pool**.
+
+# Compiling
+
+I only tested in Linux, but should compile on any system that has the required dependencies.
+
+**make MYGLIB_TARGET_LINUX=1**
+
+# Downloading assets
+
+I don't like to store assets in GitHub.
+So download them from my drive:
+
+**https://drive.google.com/drive/folders/1FlMhFVxTusTblZXbPpf1nIecc8KejfXw?usp=sharing**
+
+Just put the assets folder in project's root directory.
+
+# Running
+
+**./examples/test.exe**
+
+Remember that Dark-Star is more of a library than a standalone software.
+You can use it to test any gravitational system.
+Just set up the bodies as needed.
