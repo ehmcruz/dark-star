@@ -26,10 +26,6 @@ namespace Config
 	#else
 		inline constexpr bool sanity_check = false;
 	#endif
-
-	inline constexpr fp_t distance_exp_factor = 9;
-	inline constexpr fp_t mass_exp_factor = 9;
-	inline constexpr fp_t graphics_factor = 1e6;
 }
 
 // ---------------------------------------------------

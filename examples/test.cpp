@@ -141,13 +141,12 @@ void key_down_callback (const MyGlib::Event::KeyDown::Type& event)
 Vector gen_random_vector (const fp_t min, const fp_t max, const fp_t min_length)
 {
 	Vector v;
-
 	std::uniform_real_distribution<fp_t> dist(min, max);
 
 	do {
 		v = Vector(dist(rgenerator), dist(rgenerator), dist(rgenerator));
-	} while (v.length() < k_meters_to_dist_unit(min_length));
-	
+	} while (v.length() < min_length);
+
 	return v;
 }
 
@@ -165,16 +164,13 @@ Body create_random_cube ()
 	b.set_color(Colors::random(rgenerator));
 	b.setup_rotation(degrees_to_radians(fp(360) / fp(60*60*24)), normalize(gen_random_vector(-1, 1, 0.1)));
 
-	dprintln("create_random_cube: pos=", b.get_ref_pos(), " vel=", b.get_ref_vel());
-
 	return b;
 }
 
 void create_cubes (const uint32_t n)
 {
-	for (uint32_t i = 0; i < n; i++) {
+	for (uint32_t i = 0; i < n; i++)
 		cubes.push_back(&n_body->add_body(create_random_cube()));
-	}
 }
 
 // -------------------------------------------
@@ -193,19 +189,23 @@ static void load ()
 	texture_moon = renderer->load_texture("assets/moon-medium.jpg");
 	renderer->end_texture_loading();
 
+	dprintln("loading n_body ...");
 	n_body = new DarkStar::N_Body(20000);
+	dprintln("n_body loaded");
 
 	earth = &n_body->add_body(DarkStar::UserLib::make_earth());
 	earth->set_radius(earth->get_radius() * scale);
 	//earth = &n_body->add_body(Body(kg_to_mass_unit(1000), k_meters_to_dist_unit(0.5), Vector::zero(), Vector::zero(), Shape::Type::Cube3D));
 	earth->set_texture(texture_earth);
 	earth->set_angular_velocity(-earth->get_angular_velocity());
+	dprintln("added earth");
 
 	moon = &n_body->add_body(DarkStar::UserLib::make_moon());
 	moon->set_radius(moon->get_radius() * scale);
 	moon->set_pos(earth->get_ref_pos() + Vector(meters_to_dist_unit(DarkStar::UserLib::distance_from_moon_to_earth_m), 0, 0));
 	moon->set_vel(Vector(0, 0, k_meters_to_dist_unit(0.9)));
 	moon->set_texture(texture_moon);
+	dprintln("added moon");
 
 	sun = &n_body->add_body(DarkStar::UserLib::make_sun());
 	//sun->set_radius(earth->get_radius() * fp(2));
@@ -213,15 +213,19 @@ static void load ()
 	sun->set_radius(sun->get_radius() * scale * fp(1));
 	sun->set_pos(earth->get_ref_pos() + Vector(0, 0, -meters_to_dist_unit(DarkStar::UserLib::distance_from_earth_to_sun_m)));
 	sun->set_color(Colors::green);
+	dprintln("added sun");
 
-	create_cubes(1000);
+	create_cubes(2000);
+	dprintln("added cubes");
 
+	dprintln("loading gravity solver ...");
 	//auto *gs = new DarkStar::SimpleGravitySolver(n_body->get_ref_bodies());
 	//auto *gs = new DarkStar::SimpleParallelGravitySolver(n_body->get_ref_bodies());
 	//auto *gs = new DarkStar::BarnesHutGravitySolver(n_body->get_ref_bodies(), 2.0);
 	auto *gs = new DarkStar::BarnesHutGravityParallelSolver(n_body->get_ref_bodies(), 2.0);
 	//gs->set_theta(0.4);
 	n_body->set_gravity_solver(gs);
+	dprintln("gravity solver loaded");
 
 	std::cout << std::setprecision(2);
 }
